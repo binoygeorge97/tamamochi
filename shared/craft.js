@@ -6,6 +6,7 @@
 
 import { MORE_PROPS } from "./pocket-more.js";
 import { VEHICLES } from "./pocket-vehicles.js";
+import { MONEY_PROPS } from "./pocket-money.js";
 
 /* ------------------------------------------------------------------ props */
 
@@ -1700,10 +1701,12 @@ export const PROP_EXAMPLES = {
       { shape: "sphere", size: [0.09, 0.05, 0.02], at: [0.22, 0.42, 0.28], rotate: [0, 35, 0], color: "#ffb0a0", material: "plastic" },
       { shape: "cone", size: [0.15, 0.15, 0.07], at: [-0.2, 0.68, 0.1], rotate: [0, 0, 22], color: "#ff8a3d", material: "plastic", label: "ear" },
       { shape: "cone", size: [0.15, 0.15, 0.07], at: [0.2, 0.68, 0.1], rotate: [0, 0, -22], color: "#ff8a3d", material: "plastic" },
-      { shape: "cylinder", size: [0.13, 0.12, 0.13], at: [-0.2, 0.06, 0.16], color: "#ff8a3d", material: "plastic", label: "leg" },
-      { shape: "cylinder", size: [0.13, 0.12, 0.13], at: [0.2, 0.06, 0.16], color: "#ff8a3d", material: "plastic" },
-      { shape: "cylinder", size: [0.13, 0.12, 0.13], at: [-0.2, 0.06, -0.16], color: "#ff8a3d", material: "plastic" },
-      { shape: "cylinder", size: [0.13, 0.12, 0.13], at: [0.2, 0.06, -0.16], color: "#ff8a3d", material: "plastic" },
+      // (Nov 8, Binoy: "the legs seem detached from the body which seems to be hovering over the legs": they stopped at
+      // 0.12 while his round tummy above them starts at ~0.18; now they reach up into it)
+      { shape: "cylinder", size: [0.14, 0.23, 0.14], at: [-0.18, 0.115, 0.14], color: "#ff8a3d", material: "plastic", taper: 1.15, label: "leg" },
+      { shape: "cylinder", size: [0.14, 0.23, 0.14], at: [0.18, 0.115, 0.14], color: "#ff8a3d", material: "plastic", taper: 1.15 },
+      { shape: "cylinder", size: [0.14, 0.23, 0.14], at: [-0.18, 0.115, -0.14], color: "#ff8a3d", material: "plastic", taper: 1.15 },
+      { shape: "cylinder", size: [0.14, 0.23, 0.14], at: [0.18, 0.115, -0.14], color: "#ff8a3d", material: "plastic", taper: 1.15 },
       { shape: "box", size: [0.2, 0.03, 0.06], at: [0, 0.68, -0.04], color: "#3a2a20", material: "rubber", round: 0.45, label: "coin slot" },
       { shape: "disc", size: [0.17, 0.025, 0.17], at: [0, 0.74, -0.04], rotate: [90, 0, 0], color: "#f2c14e", material: "metal", label: "coin" },
     ],
@@ -1758,7 +1761,8 @@ export const PROP_EXAMPLES = {
 };
 // the activity book's things (shared/pocket-more.js): cooking, music, sports, the garden, camping…
 for (const [arch, list] of Object.entries(MORE_PROPS)) (PROP_EXAMPLES[arch] = PROP_EXAMPLES[arch] || []).push(...list);
-for (const [arch, list] of Object.entries(VEHICLES)) (PROP_EXAMPLES[arch] = PROP_EXAMPLES[arch] || []).push(...list);   // (Nov 4: rocket ship, plane, helicopter, boats, train)
+for (const [arch, list] of Object.entries(VEHICLES)) (PROP_EXAMPLES[arch] = PROP_EXAMPLES[arch] || []).push(...list);
+for (const [arch, list] of Object.entries(MONEY_PROPS)) (PROP_EXAMPLES[arch] = PROP_EXAMPLES[arch] || []).push(...list);   // (Nov 8: bank and money props, the PNC track)   // (Nov 4: rocket ship, plane, helicopter, boats, train)
 export const MOVE_EXAMPLES = [
   { name: "big wave", duration: 2.2, tracks: {
     "rightArm.spread": [[0, 0], [0.35, 0.9], [0.6, 0.75], [0.85, 0.95], [1.1, 0.75], [1.35, 0.95], [1.6, 0.8], [2.2, 0]],

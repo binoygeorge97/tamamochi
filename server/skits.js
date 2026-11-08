@@ -369,5 +369,5 @@ export function skitSummary(skit) {
 /** about how long the page takes to play it (ms) */
 export function skitMs(skit) {
   const read = (s) => 900 + 48 * String(s || "").length;
-  return skit.beats.reduce((t, b) => t + ({ arrive: 3200, call: 4200, dress: 2600, give: 1900, eat: 3800, use: 2600, feel: 1300, hug: 3800, dance: 3200, piggyback: 9000, leave: 1800 }[b.do] || 0) + (b.line ? read(b.line) : 0), 600);
+  return skit.beats.reduce((t, b) => t + ({ arrive: 3200, call: 4200, dress: 2600, give: 1900, eat: 3800, use: 2600, feel: 1300, hug: 3800, dance: 3200, piggyback: 9000, leave: 1800, show: 1500 }[b.do] || 0) + (b.line ? read(b.line) : 0), 600);
 }

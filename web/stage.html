@@ -222,6 +222,35 @@
   .check q { color: var(--label-3); font-style: italic; }
   .check .who { margin: 8px 0 0; font-size: 11.5px; color: var(--label-3); }
   .check q.sent { display: block; margin: 2px 0 0; font-size: 12.5px; }
+  /* Money World (Nov 8, the PNC track): the money card */
+  .msg.money { white-space: normal; max-width: 86%; padding: 12px 14px 10px; border-left: 4px solid #d4a017; }
+  .msg.money::before { content: "My money (play money)"; display: block; font: 700 11.5px/1.2 var(--ui); letter-spacing: .03em; text-transform: uppercase; color: var(--label-3); margin-bottom: 6px; }
+  .money .totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 6px; margin: 0 0 8px; }
+  .money .tot { background: rgba(212, 160, 23, .12); border-radius: 10px; padding: 6px 8px; }
+  .money .tot b { display: block; font: 700 18px/1.15 var(--ui); }
+  .money .tot span { font-size: 12px; color: var(--label-3); }
+  .money .bar { height: 8px; border-radius: 99px; background: rgba(127, 127, 127, .2); overflow: hidden; margin: 4px 0 2px; }
+  .money .bar i { display: block; height: 100%; background: #d4a017; border-radius: 99px; }
+  .money ul.ind { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 4px; }
+  .money ul.ind li { display: grid; grid-template-columns: 26px 1fr; align-items: start; gap: 6px; font-size: 14px; line-height: 1.35; }
+  .money ul.ind .f { font-size: 18px; line-height: 1.1; text-align: center; }
+  .money ul.ind small { display: block; font: 700 11px/1.2 var(--ui); letter-spacing: .03em; text-transform: uppercase; color: var(--label-3); }
+  .money ul.ind li.good small { color: #2e9d55; } .money ul.ind li.ok small { color: #c98a0c; } .money ul.ind li.low small { color: #d25b3a; }
+  .money .fc { font-size: 14px; margin: 6px 0 2px; }
+  .money .next { font-size: 14px; margin: 6px 0 0; padding: 7px 9px; border-radius: 10px; background: rgba(46, 157, 85, .1); }
+  .money .who { margin: 8px 0 0; font-size: 11.5px; color: var(--label-3); }
+  .money h4 { margin: 8px 0 3px; font: 700 12px/1.2 var(--ui); letter-spacing: .03em; text-transform: uppercase; color: var(--label-3); }
+  .money ul.up { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.4; }
+  .msg.money.grow::before { content: "Watch it grow (play money)"; }
+  .grow .chart { display: flex; align-items: flex-end; gap: 4px; height: 120px; margin: 10px 0 4px; padding: 0 2px; border-bottom: 1.5px solid rgba(127,127,127,.4); position: relative; }
+  .grow .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; position: relative; }
+  .grow .col i { display: block; width: 100%; border-radius: 5px 5px 0 0; background: #d4a017; }
+  .grow .col i.pig { position: absolute; left: 0; right: 0; height: 2px; background: #ff8a3d; border-radius: 0; }
+  .grow .col b { font: 600 10px/1 var(--ui); color: var(--label-3); margin-top: 3px; position: absolute; bottom: -14px; }
+  .grow .legend { display: flex; gap: 14px; font-size: 12.5px; color: var(--label-3); margin-top: 18px; }
+  .grow .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; background: #d4a017; }
+  .grow .legend span.pig::before { background: #ff8a3d; height: 3px; vertical-align: 2px; }
+  :root[data-mode="zeroday"] .msg.money { background: rgba(2, 18, 10, .88); color: #c9ffd9; font-family: var(--mono); }
   :root[data-mode="zeroday"] .msg.check { border-left-color: var(--v); background: rgba(2, 18, 10, .88); color: #c9ffd9; font-family: var(--mono); }
   .msg.sys { align-self: center; font-size: 12px; color: var(--label-3); background: transparent; box-shadow: none; padding: 2px; font-family: var(--mono); }
   .msg.crisis { border: 2px solid var(--accent); }
@@ -349,6 +378,7 @@
     <button class="pill" id="mute" aria-pressed="false">🔊 Voice on</button>
     <button class="pill" id="ideas" aria-pressed="false" aria-controls="tries" title="Things to say to him (for anyone trying him out)">Ideas</button>
     <button class="pill" id="draw" aria-haspopup="dialog" title="Draw something and he'll make it">Draw for him</button>
+    <button class="pill" id="moneyBtn" title="His money card: wallet, piggy bank and goal bar, three health checks, the forecast">My money</button>
     <button class="pill" id="storyBtn" aria-pressed="false" aria-controls="storycard" title="His own little plans, and what he gets up to on his own">His story</button>
     <button class="pill" id="fbBtn" aria-haspopup="dialog" hidden title="Tell Binoy what you think">Feedback</button>
     <a class="pill" id="roomLink" href="/room" target="_blank">His workshop ↗</a>
@@ -431,6 +461,15 @@
   <button type="button">Let's dance!</button>
   <button type="button">Play the scam-spotting game</button>
   <button type="button">Is this text a scam?</button>
+  <button type="button">Help me save $20 for a kite</button>
+  <button type="button">Be a chef and earn $3</button>
+  <button type="button">How's my money?</button>
+  <button type="button">What if I buy a cupcake?</button>
+  <button type="button">Cocoa wants to borrow money</button>
+  <button type="button">Do a money skit</button>
+  <button type="button">What if I keep $10 in the bank for 10 weeks?</button>
+  <button type="button">Put $3 in Mochi Bank</button>
+  <button type="button">Donate $1 to the animal shelter</button>
   <button type="button">Paint me a dragon</button>
   <button type="button">Play the guitar for Mimi</button>
   <button type="button">Let's have a tea party</button>
@@ -537,8 +576,20 @@
   // a normal one; the hat comes off a little later
   let detAt = 0;
   // the skill pack (Nov 7): the bar fills, the warning signs tick in one by one, he's thinking hard; ~4 s
-  let dlDone = Promise.resolve();
+  let dlDone = Promise.resolve(), dlAt = 0;
+  // a skill pack with his own words around it (the money pack, Nov 8): "I don't know anything about money yet…",
+  // the card, "Got it!"; his answer waits for all of it
+  function playSkill(d) {
+    if (!d || !d.before) return playDownload(d);
+    dlAt = Date.now();
+    const sayIt = (line) => { const k = M(); if (k && k.say) k.say(line); bubble(line, "mochi"); };
+    sayIt(d.before);
+    const p = new Promise((ok) => setTimeout(ok, 1600)).then(() => { const q = playDownload(d); dlDone = p; return q; }).then(() => { if (d.after) sayIt(d.after); return new Promise((ok) => setTimeout(ok, 900)); });
+    dlDone = p;
+    return p;
+  }
   function playDownload(d) {
+    dlAt = Date.now();
     const box = $("dl"), bar = $("dlBar"), ul = $("dlItems"), items = (d && d.items) || [];
     $("dlName").textContent = (d && d.skill) ? d.skill[0].toUpperCase() + d.skill.slice(1) : "A new skill";
     ul.innerHTML = ""; bar.style.width = "0"; box.hidden = false;
@@ -621,6 +672,54 @@
     return d;
   }
 
+  // Money World (Nov 8, the PNC track): the whole picture in one card: wallet, piggy bank and goal, what's owed,
+  // three health indicators, the forecast (from what they really saved) and one next move
+  function moneyCard(c) {
+    const el = (tag, text, cls) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    const $$ = (n) => { const v = Math.round((Number(n) || 0) * 100) / 100; return "$" + v.toLocaleString("en-US", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 }); };
+    const d = el("div", null, "msg mochi money"), tot = el("div", null, "totals");
+    const box = (big, small) => { const b = el("div", null, "tot"); b.append(el("b", big), el("span", small)); return b; };
+    tot.append(box($$(c.wallet), "in your wallet"));
+    if (c.piggy) tot.append(box($$(c.piggy.saved), `in the piggy bank${c.piggy.target ? ` of ${$$(c.piggy.target)}` : ""}`));
+    if (c.bank) tot.append(box($$(c.bank.balance), `in Mochi Bank${c.bank.interest ? ` (+${$$(c.bank.interest)} interest)` : ""}`));
+    if (c.loan) tot.append(box($$(c.loan.back), `${c.loan.who === "mimi" ? "Mimi" : "Cocoa"} owes you`));
+    if (c.shared) tot.append(box($$(c.shared), "shared with others ♡"));
+    d.append(tot);
+    if (c.piggy && c.piggy.target) { d.append(el("div", `Saving for ${/^(?:a|an|the|my|your)\b/i.test(c.piggy.goal) ? c.piggy.goal : `the ${c.piggy.goal}`}`, "fc")); const bar = el("div", null, "bar"), i = el("i"); i.style.width = `${Math.min(100, Math.round((c.piggy.saved / c.piggy.target) * 100))}%`; bar.append(i); bar.setAttribute("role", "img"); bar.setAttribute("aria-label", `${Math.round((c.piggy.saved / c.piggy.target) * 100)}% of the way`); d.append(bar); }
+    const ul = el("ul", null, "ind");
+    for (const x of c.indicators || []) { const li = el("li", null, ["good", "ok", "low"].includes(x.level) ? x.level : "ok"); const t = el("div"); t.append(el("small", x.name), document.createTextNode(x.text)); li.append(el("span", x.face, "f"), t); ul.append(li); }
+    d.append(ul);
+    if (c.forecast) d.append(el("p", `🔮 ${c.forecast}`, "fc"));
+    if (c.upcoming && c.upcoming.length) { d.append(el("h4", "Coming up")); const u = el("ul", null, "up"); for (const x of c.upcoming.slice(0, 4)) u.append(el("li", x)); d.append(u); }
+    if (c.next) d.append(el("p", `Next move: ${c.next}`, "next"));
+    d.append(el("p", "Play money in Mochi's world: for learning, not a real account. Worked out on this computer.", "who"));
+    chat.appendChild(d); chat.scrollTop = chat.scrollHeight;
+    return d;
+  }
+  window.__mochiMoney = moneyCard;   // tests
+  // the forecast chart (Nov 8): the same money in the piggy bank (it stays put) and in Mochi Bank (interest makes it grow)
+  function growthCard(g) {
+    const el = (tag, text, cls) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    const $$ = (n) => { const v = Math.round((Number(n) || 0) * 100) / 100; return "$" + v.toLocaleString("en-US", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 }); };
+    const d = el("div", null, "msg mochi money grow"), chart = el("div", null, "chart"), top = g.bank[g.bank.length - 1] * 1.08;
+    chart.setAttribute("role", "img"); chart.setAttribute("aria-label", `${$$(g.amount)} grows to ${$$(g.end)} in ${g.weeks} weeks in Mochi Bank; it stays ${$$(g.piggy)} in the piggy bank`);
+    const step = Math.max(1, Math.ceil(g.weeks / 12));
+    for (let w = 0; w <= g.weeks; w += step) {
+      const col = el("div", null, "col"), bar = el("i"), pig = el("i", null, "pig");
+      bar.style.height = `${(g.bank[w] / top) * 100}%`; bar.title = `week ${w}: ${$$(g.bank[w])}`;
+      pig.style.bottom = `${(g.piggy / top) * 100}%`;
+      col.append(bar, pig, el("b", w === 0 ? "now" : `${w}w`)); chart.append(col);
+    }
+    d.append(el("p", `${$$(g.amount)} for ${g.weeks} week${g.weeks === 1 ? "" : "s"}`, "fc"), chart);
+    const lg = el("div", null, "legend"); lg.append(el("span", `Mochi Bank: ${$$(g.end)}`), el("span", `Piggy bank: ${$$(g.piggy)}`, "pig")); d.append(lg);
+    d.append(el("p", `The bank pays ${Math.round(g.rate * 100)}% a week here (a play rate), and interest earns interest too: +${$$(g.interest)} in ${g.weeks} weeks.`, "next"));
+    d.append(el("p", "Play money in Mochi's world: for learning, not a real account. Worked out on this computer.", "who"));
+    chat.appendChild(d); chat.scrollTop = chat.scrollHeight;
+    return d;
+  }
+  // the menu's "My money" (Nov 8): asks him, as if they'd typed it (so on day zero he downloads his money skills first)
+  $("moneyBtn").addEventListener("click", () => { if (busy) return; input.value = "How's my money?"; $("composer").requestSubmit(); });
+
   // ---- Zero Day mode: the page, Mochi, his props and his personality switch together
   let mode = store.get("mochi.mode") === "zeroday" ? "zeroday" : "normal";
   function setMode(next, animate = true) {
@@ -668,7 +767,7 @@
       }
       if (m.type === "story") paintStory(m);
       if (m.type === "scamcheck" && m.phase === "start") detective(m);   // Detective Mochi while the scam check runs (Nov 7)
-      if (m.type === "skill" && m.download) playDownload(m.download);   // "download the scam knowledge" (Nov 8)
+      if (m.type === "skill" && m.download) playSkill(m.download);   // (the money pack comes with his own words: Nov 8)   // "download the scam knowledge" (Nov 8)
     };
   }
   connect();
@@ -736,7 +835,7 @@
     if (g.day <= 1 && !g.made && !g.moves && !welcomed) {
       welcomed = true; showTries(true);
       setTimeout(() => { if (M()) { M().play("hello", 2200); if (M().say) M().say("Hi! I'm Mochi. I don't know much yet…"); } }, 900);
-      setTimeout(() => { bubble("Hi! I'm Mochi. It's my first day, so I don't know anything yet. I learn from you: ask me to make something, draw it for me, or teach me a move with your hands. I can even learn to spot scams: show me a message you're not sure about.", "mochi", "", { quiet: true }); }, 2600);
+      setTimeout(() => { bubble("Hi! I'm Mochi. It's my first day, so I don't know anything yet. I learn from you: ask me to make something, draw it for me, or teach me a move with your hands. I can even learn to spot scams, and how money works: show me a message you're not sure about, or ask me how to save up for something.", "mochi", "", { quiet: true }); }, 2600);
     }
   }
   let welcomed = false;
@@ -974,7 +1073,8 @@
         }
         case "friend_say": { if (!here(w)) { m.friend(w, "hello", 60000, { call: false }); await until(() => arrived(w), 6000); } sayF(w, s.line); await wait(readMs(s.line)); break; }
         case "give": {
-          if (!PR().carrying(w) && s.with && things[s.with]) PR().carry(w, things[s.with]);
+          if (!here(w)) { m.friend(w, "hello", 60000, { call: false }); await until(() => arrived(w), 6000); }   // (Money World, Nov 8: Mimi may have gone home before they picked)
+          { const held = PR().carrying(w); if (s.with && things[s.with] && (!held || held.name !== things[s.with].name)) PR().carry(w, things[s.with]); }   // (the cookie, not the cupcake she was holding)
           if (PR().handOver(w)) { await wait(800); m.play("surprised", 900); bubble(`[${FN(w)} gives him the ${s.with}]`, "sys"); await wait(1100); }
           break;
         }
@@ -986,6 +1086,11 @@
         case "piggyback": { if (PR().piggyback) { const r = PR().piggyback(w, { quiet: !!s.line }); if (s.line) sayF(w, s.line); await wait(r && r.ms ? Math.min(12000, r.ms) : 7000); } break; }
         case "leave": { if (s.line) sayF(w, s.line); if (m.dismissFriend) m.dismissFriend(w); await wait(1800); break; }
         case "download": { await playDownload({ skill: s.skill, items: s.items }); break; }   // his first skill pack (Nov 7)
+        case "show": {   // a prop set out or held up for the scene (Money World, Nov 8: the little bank, the jars, the receipt…)
+          const r = things[s.with]; if (r) showProp({ name: r.name, archetype: r.archetype, recipe: r }, s.ms || 12000);
+          if (s.line) sayM(s.line);
+          await wait(1500 + (s.line ? readMs(s.line) : 0)); break;
+        }
         case "dress": {   // dressing up for a job in the scene (Nov 7): its hat or outfit and its tool
           const o = things[`job:${s.with}`]; if (!o) break;
           if (w !== "mochi" && !here(w)) { m.friend(w, "hello", 60000, { call: false }); await until(() => arrived(w), 6000); }
@@ -1538,7 +1643,13 @@
     if (r.dismiss && M() && M().dismissFriend) { for (const w of r.dismiss) M().dismissFriend(w); if (r.dismiss.includes(talkingTo)) setWho("mochi"); }   // "let them go": they say bye and leave
     if (r.party && M() && M().party) setTimeout(() => M().party({ friends: r.party.friends, ms: r.party.ms }), 250);   // "let's dance!": a dance party
     if (r.stance) setTimeout(() => stanceDo(r.stance), 250);
-    if (r.savings) setTimeout(() => runSavings(r.savings), 250);   // the piggy bank: a goal, a coin in, the goal reached
+    const afterDl = (fn) => (Date.now() - dlAt < 12000 ? dlDone.then(() => setTimeout(fn, 250)) : setTimeout(fn, 250));   // (a skill pack downloading: the piggy bank and coins come after it, Nov 8)
+    if (r.savings) afterDl(() => runSavings(r.savings));
+    if (r.moneyProp && r.moneyProp.recipe && PR()) afterDl(() => showProp(r.moneyProp, 14000));   // (his wallet, the little bank, the jars…: Nov 8)   // the piggy bank: a goal, a coin in, the goal reached
+    if (r.money && r.money.earned) afterDl(() => {   // Money World: play money earned (a job, a chore, the allowance): coins jingle in
+      const m0 = M(); for (let i = 0; i < Math.min(5, Math.max(1, Math.round(r.money.earned))); i++) setTimeout(() => m0 && m0.fx && m0.fx("coin"), 150 + i * 170);
+      bubble(`[+$${r.money.earned} in your wallet · $${r.money.wallet} now]`, "sys keep");
+    });
     if (r.cold && M() && M().cold) setTimeout(() => (r.cold.on ? M().cold(true, r.cold.until) : M().cold(false)), 300);   // "you caught a cold" / soup, tea, a nap
     else if (r.sneeze && M() && M().sneeze) setTimeout(() => M().sneeze(), 300);                                       // "can you sneeze?"
     if (r.point && r.point.at) {   // "shoot Cocoa": he runs in (or she hops in), out comes the launcher, and he aims at them
@@ -1727,7 +1838,8 @@
       const body = JSON.stringify({ text, id, ...(drew ? { doodle: drew } : {}), rule: m ? m.classify(text) : null, events, costume: wore, mode, holding: PR() ? PR().current() : null, friends: m && m.friends ? m.friends() : null, to: talkingTo !== "mochi" ? talkingTo : null, guard: PR() && PR().guard ? PR().guard() : null, standing: !!(m && m.stance && m.stance().standing) });
       const r = await chatFetch(body);
       applyFirst(r);   // no-op if the WebSocket already delivered it
-      if (r.reply && r.reply.scamCheck) await dlDone;   // (his first skill pack: he answers once it's downloaded)
+      if (r.reply && r.reply.download && Date.now() - dlAt > 15000) playSkill(r.reply.download);   // (the socket missed it: play it now)
+      if (r.reply && (r.reply.scamCheck || r.reply.download)) await dlDone;   // (a skill pack: he answers once it's downloaded)
       if (cueBeatUntil > Date.now()) await new Promise((ok) => setTimeout(ok, cueBeatUntil - Date.now()));   // he looks at it, then answers
       if (m) {
         send("busy", { busy: false });
@@ -1737,6 +1849,8 @@
       }
       if (r.reply.text) { bubble(r.reply.text, "mochi", r.reply.crisis ? "crisis" : "", { quiet: true }); if (window.VOICE && !r.reply.crisis) window.VOICE.speak(r.reply.say || r.reply.text); }   // (say: with his voice tags, heard not shown)
       if (r.reply.scamCheck) { scamCard(r.reply.scamCheck); detectiveVerdict(r.reply.scamCheck); }
+      if (r.reply.moneyCard) moneyCard(r.reply.moneyCard);   // Money World (Nov 8)
+      if (r.reply.growthCard) growthCard(r.reply.growthCard);   // the growth chart
       if (r.reply.cold && r.reply.cold.on && M() && M().cold) M().cold(true, r.reply.cold.until);   // his story gave him a cold ("Achoo! I think I'm catching a cold…")
       else if (r.reply.sneeze && M() && M().sneeze) M().sneeze();                                  // "Achoo!" in his words: on screen too
       (r.reply.friendSay || []).forEach((f, i) => setTimeout(() => {   // Cocoa's or Mimi's own line: their bubble on stage, their own line here
