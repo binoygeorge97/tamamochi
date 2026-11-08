@@ -6,7 +6,9 @@ Built at HackUTD 2026.
 
 ## Try it live
 
-**https://stamps-formed-mixing-within.trycloudflare.com**
+**https://tamamochi.work**
+
+If the domain doesn't open yet, use the direct link: https://stamps-formed-mixing-within.trycloudflare.com
 
 It needs a passcode, which is in our Devpost submission (or ask us at our table). Mochi runs on our own computer during the event, so if the link doesn't open, the computer is restarting: try again in a minute.
 
