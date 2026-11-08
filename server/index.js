@@ -153,7 +153,7 @@ export async function createServer(opts = {}) {
   // only on this computer, and a fair share of the model per visitor (server/share.js)
   const gate = (opts.public ?? process.env.MOCHI_PUBLIC === "1") ? makeGate({ dataDir, log: console }) : null;
   if (gate) { app.set("trust proxy", false); app.use(gate.middleware); }
-  app.get("/api/whoami", (_, res) => res.json({ public: !!gate }));
+  app.get("/api/whoami", (req, res) => res.json({ public: !!gate, admin: !gate || !!(gate.isAdmin && gate.isAdmin(req)) }));   // admin: the grown-up buttons work here (this computer, or the grown-up code)
   // feedback from people trying him (the Feedback button when he's shared): kept in data\feedback.jsonl, and filed to
   // 8090 when it's connected
   app.post("/api/feedback", express.json({ limit: "20kb" }), (req, res) => {
@@ -272,8 +272,9 @@ export async function createServer(opts = {}) {
     const ms = (t) => (t ? Date.parse(String(t) + (/[zZ]|[+-]\d\d:\d\d$/.test(String(t)) ? "" : "Z")) : NaN);
     const first = ["turns", "props", "moves", "scrapbook"].map((t) => ms((memory.db.prepare(`SELECT MIN(created_at) AS t FROM ${t}`).get() || {}).t)).filter((x) => x > 0);
     const kvBorn = ms(memory.get("born", null)), bornMs = Math.min(...[kvBorn, ...first].filter((x) => x > 0));
-    const born = Number.isFinite(bornMs) ? new Date(bornMs).toISOString() : null;
-    const day = born ? Math.max(1, Math.floor((Date.now() - bornMs) / 86400000) + 1) : 0;
+    const fixed = memory.get("born.fixed", null);   // (set from the workshop page: his days count from there)
+    const born = fixed || (Number.isFinite(bornMs) ? new Date(bornMs).toISOString() : null);
+    const day = born ? Math.max(1, Math.floor((Date.now() - Date.parse(born)) / 86400000) + 1) : 0;
     const props = memory.props(), moves = memory.moves(), hs = memory.get("handshake", null);
     const M2 = craftLLM.status ? craftLLM.status() : null, v = voice.status();
     const cloud = [...(M2 ? M2.providers.filter((p) => !p.local && !/^off/.test(p.state)).map((p) => `${cloudLabel(p.name)} (${cloudRoles(p)})`) : []), ...(/elevenlabs/.test(v.tts) || /elevenlabs/.test(v.stt) ? ["elevenlabs (voice)"] : []), ...(factory.enabled() ? ["8090 (feedback)"] : [])];
@@ -340,11 +341,12 @@ export async function createServer(opts = {}) {
   });
   app.post("/api/reset-demo", (req, res) => {   // restores data/mochi.demo.sqlite if present (day-3 history snapshot)
     work.gen++; work.rethumb.clear();   // whatever the workbench is in the middle of belongs to the old Mochi
+    try { const n = memory.saveToLibrary("all", req.body && req.body.which === "zero" ? "before day zero" : "before a reset"); if (n) console.log(`[props] ${n} saved to his library first`); } catch (e) { console.warn("[props] library:", e.message); }
     if (req.body && req.body.which === "zero") {   // Day Zero (Nov 3): he knows nothing, owns nothing; born right now
       let backup = null;
       try { backup = path.join(dataDir, `mochi.before-dayzero.${Date.now()}.sqlite`); memory.db.exec(`VACUUM INTO '${backup.replace(/'/g, "''")}'`); } catch (e) { backup = null; console.warn("[demo] no backup before day zero:", e.message); }
       memory.db.exec("DELETE FROM facts; DELETE FROM phrases; DELETE FROM props; DELETE FROM moves; DELETE FROM scrapbook; DELETE FROM queue; DELETE FROM turns; DELETE FROM kv;");
-      memory.set("born", new Date().toISOString());
+      memory.set("born", new Date().toISOString()); memory.set("born.fixed", null);
       state.strikes = 0; state.careUntil = 0; state.cold = null;
       broadcast({ type: "reborn" });
       return res.json({ ok: true, zero: true, backup: backup ? path.basename(backup) : null });
@@ -384,6 +386,7 @@ export async function createServer(opts = {}) {
   // "a clear all old props button" (Binoy, Nov 2): everything he's made goes off his shelf. Put away, not destroyed:
   // the page offers Undo, and /api/props/restore brings them back. His pocket things stay (they're part of him).
   app.post("/api/props/clear", (req, res) => {
+    try { memory.saveToLibrary(memory.props().map((p) => p.id), "before the shelf was cleared"); } catch (e) { console.warn("[props] library:", e.message); }
     sceneryNow().clear();   // (the story's scenery goes too)
     const ids = memory.clearProps();
     memory.cancelFixes();
@@ -412,6 +415,34 @@ export async function createServer(opts = {}) {
     const id = memory.addProp({ name: pat.name, archetype: pat.archetype, recipe: { ...v.recipe, name: pat.name, archetype: pat.archetype }, origin: `you turned it the way you like it on ${when}`, source: "user", meta: { adjusted: true } });
     work.rethumb.add(id);
     res.json({ ok: true, id, created: true });
+  });
+  // one prop off his shelf (Nov 7, Binoy: "delete props"): a copy goes to his library first, so it can come back
+  app.post("/api/props/:id/remove", (req, res) => {
+    const id = +req.params.id, p = memory.props().find((x) => x.id === id);
+    if (!p) return res.status(404).json({ ok: false, error: "not on his shelf" });
+    try { memory.saveToLibrary([id], "removed from the shelf"); } catch (e) { console.warn("[props] library:", e.message); }
+    memory.removeProp(id); memory.set("lastReveal", null);
+    console.log(`[props] removed "${p.name}" (kept in his library)`);
+    res.json({ ok: true, removed: p.name });
+  });
+  // his saved props: every prop he made before a clear, a delete, a reset or Day Zero; good ones (Pip knew them, or you
+  // said they looked right) first. One can go back on his shelf.
+  app.get("/api/library", (_, res) => res.json({ props: memory.library() }));
+  app.post("/api/library/:id/shelf", (req, res) => {
+    const it = memory.libraryItem(+req.params.id);
+    if (!it) return res.status(404).json({ ok: false, error: "not in his library" });
+    const have = memory.props().find((x) => x.name.toLowerCase() === it.name.toLowerCase() && JSON.stringify(x.recipe) === JSON.stringify(it.recipe));
+    if (have) return res.json({ ok: true, id: have.id, already: true });
+    const id = memory.addProp({ name: it.name, archetype: it.archetype, recipe: it.recipe, origin: it.origin || "from my saved props", source: it.source === "pocket" ? "user" : (it.source || "user"), meta: { ...it.meta, fromLibrary: true } });
+    work.rethumb.add(id);
+    res.json({ ok: true, id });
+  });
+  // his days counted from a fixed moment (Nov 7, Binoy: "keep the days from day 0 to day 1 since the hackathon is only
+  // for 2 days"): {at: ISO} or {at: null} to go back to counting from his first memory
+  app.post("/api/born", (req, res) => {
+    const at = req.body && req.body.at ? Date.parse(req.body.at) : NaN;
+    memory.set("born.fixed", Number.isFinite(at) ? new Date(at).toISOString() : null);
+    res.json({ ok: true, born: memory.get("born.fixed", null) });
   });
   app.post("/api/props/restore", (req, res) => {
     const ids = (Array.isArray(req.body && req.body.ids) ? req.body.ids : []).map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 500);
@@ -1313,7 +1344,7 @@ export async function createServer(opts = {}) {
       try {
         const sets = [{ name: "made-up (kept back from tuning)", set: HELD_OUT }];
         const tdir = path.join(dataDir, "tmobile");
-        try { for (const fn of fs.readdirSync(tdir).filter((x) => /\.(?:csv|jsonl?|json)$/i.test(x))) { const got = parseSet(fn, fs.readFileSync(path.join(tdir, fn), "utf8")); if (got.length) sets.push({ name: `T-Mobile: ${fn}`, set: spec.limit ? got.slice(0, +spec.limit) : got }); } } catch (_) { /* no folder yet */ }
+        try { for (const fn of fs.readdirSync(tdir).filter((x) => /\.(?:csv|jsonl?|json)$/i.test(x))) { const got = parseSet(fn, fs.readFileSync(path.join(tdir, fn), "utf8")); if (got.length) sets.push({ name: `${fn} (an outside set, never trained on)`, set: spec.limit ? got.slice(0, +spec.limit) : got }); } } catch (_) { /* no folder yet */ }
         if (spec.tuning) sets.push({ name: "made-up (the rules were tuned on it)", set: SCAM_SET });
         const out = { at: new Date().toISOString(), sets: [] };
         for (const S of sets) {

@@ -4,14 +4,15 @@
 // to it (scripts\share-mochi.cmd). Nothing on this computer listens to the network, and here:
 //   - every page, file and socket needs the passcode (data\share.json, made on first start); a link with ?code=… lets
 //     a judge in with one tap and is then dropped from the address bar;
-//   - the grown-up buttons (reset, Day Zero, demo snapshot, forget, clear the shelf) only work on this computer;
+//   - the grown-up buttons (reset, Day Zero, demo snapshot, forget, clear the shelf) only work on this computer, or
+//     after the grown-up code (also in data\share.json, not the passcode) is entered on his workshop page (Nov 7);
 //   - each visitor gets a fair share of the model (messages, drawings, voice per minute).
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
 const WORDS = ["kite", "cocoa", "mochi", "piggy", "cupcake", "teacup", "sneeze", "disco", "wand", "scarf", "globe", "puff", "pip", "kit"];
-const ADMIN = [/^\/api\/reset-demo/, /^\/api\/demo-snapshot/, /^\/api\/forget/, /^\/api\/props\/clear/, /^\/api\/props\/restore/, /^\/api\/review$/, /^\/api\/voice\/set/, /^\/api\/cloud-boost/];
+const ADMIN = [/^\/api\/reset-demo/, /^\/api\/demo-snapshot/, /^\/api\/forget/, /^\/api\/props\/clear/, /^\/api\/props\/restore/, /^\/api\/props\/\d+\/remove/, /^\/api\/library\/\d+\/shelf/, /^\/api\/born/, /^\/api\/review$/, /^\/api\/voice\/set/, /^\/api\/cloud-boost/];
 const LIMITS = [[/^\/api\/chat$/, 14], [/^\/api\/doodle$/, 4], [/^\/api\/tts$/, 90], [/^\/api\/voice\/try$/, 10], [/^\/api\/stt$/, 12], [/^\/api\/feedback$/, 5], [/^\/api\/props\/adjust$/, 20], [/^\/api\/moves$/, 10], [/^\/api\/handshake$/, 6], [/^\/api\/paintings$/, 6], [/^\/api\/activity\/done$/, 20]];
 
 export function loadShare(dataDir) {
@@ -27,8 +28,17 @@ export function loadShare(dataDir) {
     try { fs.writeFileSync(file, JSON.stringify(j, null, 2)); } catch (_) { /* read-only: still works this run */ }
   }
   if (!j.salt) j.salt = "mochi";
+  // the grown-up code (Nov 7, Binoy: the reset and delete buttons from his Chromebook): a second code, not the passcode,
+  // that unlocks the grown-up buttons through the tunnel; judges get the passcode only
+  if (!j.admin) {
+    const w = () => WORDS[crypto.randomInt(WORDS.length)];
+    j.admin = `${w()}-${w()}-${crypto.randomInt(10000, 100000)}`;
+    j._adminHow = "The grown-up code: unlocks reset, Day Zero, clearing and deleting props from another computer (his workshop page asks for it). Keep it to yourself.";
+    try { fs.writeFileSync(file, JSON.stringify(j, null, 2)); } catch (_) { /* read-only: still works this run */ }
+  }
   const token = crypto.createHash("sha256").update(`${j.passcode}|${j.salt}`).digest("hex").slice(0, 32);
-  return { passcode: String(j.passcode), token, file };
+  const adminToken = crypto.createHash("sha256").update(`admin|${j.admin}|${j.salt}`).digest("hex").slice(0, 32);
+  return { passcode: String(j.passcode), token, admin: String(j.admin), adminToken, file };
 }
 
 // a malformed cookie ("mochi_pass=%") must not throw: on the socket upgrade that crashed the whole server (Nov 3 review)
@@ -49,8 +59,9 @@ ${slow ? '<div class="bad">Too many tries. Wait a minute, then try again.</div>'
 /** the gate, as express middleware (mount it before everything else); also checks the socket upgrade */
 export function makeGate({ dataDir, log = console }) {
   const S = loadShare(dataDir), hits = new Map();
-  log.log(`[share] public mode: passcode "${S.passcode}" (in ${S.file}); the reset and snapshot buttons only work on this computer`);
+  log.log(`[share] public mode: passcode "${S.passcode}" (in ${S.file}); the grown-up buttons work on this computer, or with the grown-up code (in the same file)`);
   const ok = (req) => cookieOf(req, "mochi_pass") === S.token;
+  const isAdmin = (req) => local(req) || cookieOf(req, "mochi_admin") === S.adminToken;
   const setCookie = (res) => res.setHeader("set-cookie", `mochi_pass=${S.token}; Path=/; Max-Age=${60 * 60 * 24 * 14}; HttpOnly; SameSite=Lax${res.req && res.req.headers["cf-connecting-ip"] ? "; Secure" : ""}`);
   const limited = (req) => {
     const rule = LIMITS.find(([re]) => re.test(norm(req.path))); if (!rule || req.method !== "POST") return false;
@@ -92,10 +103,25 @@ export function makeGate({ dataDir, log = console }) {
       if (req.method === "GET" && req.accepts("html") && !req.path.startsWith("/api/")) return res.status(401).type("html").send(PAGE(false));
       return res.status(401).json({ error: "passcode needed" });
     }
-    if (ADMIN.some((re) => re.test(norm(req.path))) && req.method !== "GET" && !local(req)) return res.status(403).json({ error: "only on Binoy's computer" });
+    // the grown-up code: POST /api/grownup {"code": …}; wrong ones count like wrong passcodes
+    if (norm(req.path) === "/api/grownup" && req.method === "POST") {
+      if (lockedOut(req)) return res.status(429).json({ ok: false, error: "Too many tries. Wait a minute." });
+      let body = ""; req.on("data", (d) => { body += d; if (body.length > 2000) req.destroy(); });
+      req.on("end", () => {
+        let code = ""; try { code = String(JSON.parse(body).code || ""); } catch (_) { code = new URLSearchParams(body).get("code") || ""; }
+        if (code.trim().toLowerCase() === S.admin.toLowerCase()) {
+          res.setHeader("set-cookie", `mochi_admin=${S.adminToken}; Path=/; Max-Age=${60 * 60 * 24 * 3}; HttpOnly; SameSite=Lax${req.headers["cf-connecting-ip"] ? "; Secure" : ""}`);
+          log.log(`[share] grown-up code entered by ${visitorOf(req)}`);
+          return res.json({ ok: true });
+        }
+        wrong(req); res.status(401).json({ ok: false, error: "That's not the grown-up code." });
+      });
+      return;
+    }
+    if (ADMIN.some((re) => re.test(norm(req.path))) && req.method !== "GET" && !isAdmin(req)) return res.status(403).json({ error: "only on Binoy's computer, or with the grown-up code" });
     if (limited(req)) return res.status(429).json({ error: "Mochi needs a little breather. Try again in a few seconds!", text: "Phew, that's a lot of messages! Give me a few seconds to catch up?" });
     res.setHeader("x-robots-tag", "noindex");
     next();
   }
-  return { middleware, wsAllowed: (req) => local(req) || ok(req), passcode: S.passcode, isPublic: true };
+  return { middleware, wsAllowed: (req) => local(req) || ok(req), passcode: S.passcode, isPublic: true, isAdmin };
 }

@@ -669,7 +669,7 @@
     if (g.day <= 1 && !g.made && !g.moves && !welcomed) {
       welcomed = true; showTries(true);
       setTimeout(() => { if (M()) { M().play("hello", 2200); if (M().say) M().say("Hi! I'm Mochi. I don't know much yet…"); } }, 900);
-      setTimeout(() => { bubble("Hi! I'm Mochi. It's my first day, so I don't know anything yet. I learn from you: ask me to make something, draw it for me, or teach me a move with your hands. Everything stays on this computer.", "mochi", "", { quiet: true }); }, 2600);
+      setTimeout(() => { bubble("Hi! I'm Mochi. It's my first day, so I don't know anything yet. I learn from you: ask me to make something, draw it for me, or teach me a move with your hands. I'm a scam detective too: show me a message you're not sure about.", "mochi", "", { quiet: true }); }, 2600);
     }
   }
   let welcomed = false;
@@ -689,7 +689,7 @@
     try {
       const r = await (await fetch("/api/room")).json();
       $("shelf").innerHTML = "";
-      if (r.props.length || clearUndo) $("shelf").appendChild(clearButton(r.props));
+      if ((r.props.length || clearUndo) && grownup) $("shelf").appendChild(clearButton(r.props));   // (shared: only with the grown-up code)
       for (const p of r.props) {
         const s = document.createElement("span"); s.title = `${p.origin} (tap to see it, pull it out to put it somewhere or give it to someone)`;
         s.classList.add("chip"); s.addEventListener("pointerdown", (e) => { if (!stage.classList.contains("posing")) { e.preventDefault(); pullStart(e, p, "chip"); } });
@@ -711,7 +711,8 @@
   loadShelf();
   // "a clear all old props button" (Nov 2): one tap asks, a second tap clears; Undo for 12 s after. Cleared props are put
   // away on the server (not destroyed); his pocket things stay.
-  let clearUndo = null, clearAsk = 0;
+  let clearUndo = null, clearAsk = 0, grownup = true;
+  fetch("/api/whoami").then((r) => r.json()).then((w) => { grownup = !!(w && (w.admin || !w.public)); loadShelf(); }).catch(() => {});
   function clearButton(props) {
     const b = document.createElement("button"); b.type = "button"; b.className = "clear";
     if (clearUndo) { b.textContent = `Undo clear (${clearUndo.ids.length})`; b.onclick = undoClear; return b; }
@@ -723,6 +724,7 @@
       clearAsk = 0;
       try {
         const res = await (await fetch("/api/props/clear", { method: "POST" })).json();
+        if (!res.ok) { bubble(`[couldn't clear the shelf: ${res.error || "not allowed here"}]`, "sys keep"); loadShelf(); return; }
         const cur = PR() && PR().current(); if (cur && props.some((p) => p.name === cur.name)) PR().putAway();
         if (PR() && PR().floorClear) PR().floorClear();
         clearUndo = { ids: res.ids || [], timer: setTimeout(() => { clearUndo = null; loadShelf(); }, 12000) };

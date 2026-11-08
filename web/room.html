@@ -122,6 +122,15 @@
   .demo-row button.ghost { background: transparent; color: #2b2420; }
   .demo-row button.ask { background: #b3261e; border-color: #b3261e; color: #fff; }
   .demo-row button:focus-visible { outline: 2px solid #1d4f8e; outline-offset: 2px; }
+  .demo-row input { font: 16px var(--ui, system-ui); padding: 6px 10px; border: 1.5px solid #2b2420; border-radius: 3px; background: #fffdf8; min-width: 0; flex: 1 1 160px; }
+  .lib { list-style: none; margin: 6px 0 0; padding: 0; max-height: 260px; overflow: auto; }
+  .lib li { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px dashed rgba(43,36,32,.25); font-size: 15px; }
+  .lib li .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lib li .good { color: #2e7d4f; font-size: 12px; }
+  .lib li button, .tag .rm { font: 13px var(--ui, system-ui); border: 1px solid #2b2420; background: transparent; color: #2b2420; border-radius: 3px; padding: 1px 8px; cursor: pointer; }
+  .tag .rm { position: absolute; top: 6px; right: 8px; display: none; background: rgba(255,253,248,.8); }
+  body.grownup .tag .rm { display: inline-block; }
+  .tag .rm.ask, .lib li button.ask { background: #b3261e; border-color: #b3261e; color: #fff; }
   .scamacc table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 6px 0; }
   .scamacc th, .scamacc td { text-align: left; padding: 4px 6px; border-bottom: 1px solid rgba(0,0,0,.08); }
   .scamacc td.n { font-variant-numeric: tabular-nums; }
@@ -278,12 +287,26 @@
   <section class="scamacc"><h2 class="tape">Scam checker: how good is it?</h2>
     <div class="card demo-card" id="scamAcc"><p class="why">No accuracy run yet.</p></div>
   </section>
+  <section class="grownup-gate" id="gate" hidden><h2 class="tape">Grown-up buttons</h2>
+    <div class="card demo-card">
+      <p class="name">Reset, Day Zero, clearing and deleting props</p>
+      <p class="why">These are locked when Mochi is shared. Enter the grown-up code (not the passcode) to use them here.</p>
+      <form class="demo-row" id="gateForm"><input id="gateCode" autocomplete="off" autocapitalize="none" placeholder="grown-up code" aria-label="Grown-up code" required><button type="submit">Unlock</button></form>
+      <p class="small" id="gateMsg" role="status"></p>
+    </div>
+  </section>
   <section class="demo"><h2 class="tape">For the demo</h2>
     <div class="card demo-card">
       <p class="name">Save him as he is now, and put him back between demos</p>
       <p class="why" id="demoInfo">Checking for a saved demo…</p>
-      <div class="demo-row"><button type="button" id="demoSave">Save as the demo</button><button type="button" id="demoReset" class="ghost">Reset to the demo</button><button type="button" id="demoZero" class="ghost">Day zero</button></div>
+      <div class="demo-row"><button type="button" id="demoSave">Save as the demo</button><button type="button" id="demoReset" class="ghost">Reset to the demo</button><button type="button" id="demoZero" class="ghost">Day zero</button><button type="button" id="demoClear" class="ghost">Clear his props</button></div>
       <p class="small" id="demoMsg" role="status"></p>
+    </div>
+    <div class="card demo-card">
+      <p class="name">His saved props</p>
+      <p class="why" id="libInfo">Every prop he made is saved here before a clear, a delete, a reset or Day Zero. The good ones (Pip knew them, or you said they looked right) come first.</p>
+      <ul class="lib" id="libList"></ul>
+      <p class="small" id="libMsg" role="status"></p>
     </div>
     <div class="card demo-card">
       <p class="name">What he learned today</p>
@@ -314,7 +337,53 @@
   (function () {
     const info = document.getElementById("demoInfo"), msg = document.getElementById("demoMsg"), save = document.getElementById("demoSave"), reset = document.getElementById("demoReset");
     // shared (a tunnel): the reset and snapshot buttons only work on Binoy's computer, so they aren't shown
-    fetch("/api/whoami").then((r) => r.json()).then((w) => { if (w && w.public) document.querySelector("section.demo").hidden = true; }).catch(() => {});
+    // (Nov 7: or with the grown-up code, from any computer; the passcode alone doesn't unlock them)
+    fetch("/api/whoami").then((r) => r.json()).then((w) => {
+      const admin = !!(w && (w.admin || !w.public));
+      document.querySelector("section.demo").hidden = !admin; document.getElementById("gate").hidden = admin;
+      document.body.classList.toggle("grownup", admin); if (admin) paintLib();
+    }).catch(() => {});
+    document.getElementById("gateForm").onsubmit = async (e) => {
+      e.preventDefault(); const gm = document.getElementById("gateMsg");
+      try {
+        const r = await fetch("/api/grownup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code: document.getElementById("gateCode").value }) });
+        if (r.ok) { gm.textContent = "Unlocked."; location.reload(); } else { gm.textContent = ((await r.json().catch(() => ({}))).error) || "That didn't work."; }
+      } catch (_) { gm.textContent = "Couldn't reach the server."; }
+    };
+    // two taps for anything that takes props away (the first asks, for 4 s)
+    const twoTap = (b, label, ask) => { if (b.dataset.at && Date.now() - +b.dataset.at < 4000) { delete b.dataset.at; b.textContent = label; b.classList.remove("ask"); return true; }
+      b.dataset.at = Date.now(); b.textContent = ask; b.classList.add("ask"); setTimeout(() => { if (b.dataset.at && Date.now() - +b.dataset.at >= 4000) { delete b.dataset.at; b.textContent = label; b.classList.remove("ask"); } }, 4100); return false; };
+    // his saved props: put one back on his shelf
+    const libList = document.getElementById("libList"), libMsg = document.getElementById("libMsg");
+    async function paintLib() {
+      try {
+        const r = await (await fetch("/api/library")).json();
+        libList.innerHTML = r.props.length ? r.props.map((p) => `<li><span class="n" title="${esc(p.origin || "")}">${esc(p.name)}</span>${p.good ? '<span class="good">good</span>' : ""}<button type="button" data-shelf="${p.id}">put back</button></li>`).join("")
+          : '<li><span class="n">Nothing saved yet.</span></li>';
+      } catch (_) { libMsg.textContent = "Can't reach Mochi's server."; }
+    }
+    libList.onclick = async (e) => {
+      const b = e.target.closest("button[data-shelf]"); if (!b) return;
+      b.disabled = true;
+      try { const r = await (await fetch(`/api/library/${b.dataset.shelf}/shelf`, { method: "POST" })).json(); libMsg.textContent = r.ok ? (r.already ? "It's already on his shelf." : "Back on his shelf.") : `Couldn't: ${r.error}`; }
+      catch (_) { libMsg.textContent = "Couldn't reach the server."; }
+      b.disabled = false; load();
+    };
+    // one prop off his shelf
+    document.getElementById("props").addEventListener("click", async (e) => {
+      const b = e.target.closest("button[data-remove]"); if (!b || !twoTap(b, "remove", "sure?")) return;
+      try { const r = await (await fetch(`/api/props/${b.dataset.remove}/remove`, { method: "POST" })).json(); msg.textContent = r.ok ? `"${r.removed}" is off his shelf (kept in his saved props).` : `Couldn't remove it: ${r.error}`; }
+      catch (_) { msg.textContent = "Couldn't reach the server."; }
+      load(); paintLib();
+    });
+    // every prop off his shelf (saved first; his moves, handshake and memories stay)
+    const clr = document.getElementById("demoClear");
+    clr.onclick = async () => {
+      if (!twoTap(clr, "Clear his props", "Tap again: clear all his props")) return;
+      try { const r = await (await fetch("/api/props/clear", { method: "POST" })).json(); msg.textContent = r.ok ? `Cleared ${r.cleared} prop${r.cleared === 1 ? "" : "s"}. They're in his saved props below; his moves and memories stay.` : `Couldn't clear: ${r.error}`; }
+      catch (_) { msg.textContent = "Couldn't reach the server."; }
+      load(); paintLib();
+    };
     const when = (iso) => { const d = new Date(iso); return d.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" }); };
     async function paint() {
       try {
@@ -366,7 +435,7 @@
       const ready = b.cloud.filter((c) => c.state === "ready" || /^resting/.test(c.state)), down = b.cloud.filter((c) => /^off: (?!cloud)/.test(c.state));
       bInfo.textContent = b.on
         ? `On: ${who(ready.length ? ready : b.cloud)}. When a new prop needs a second look, its pictures go to the cloud; his badge says so while it's on.${down.length ? ` (${down.map((c) => `${c.name}: ${c.state.replace(/^off: /, "")}`).join(", ")})` : ""}`
-        : `Off: everything is made on this computer, by ${here}, and nothing leaves the house. On: ${who(b.cloud)}.`;
+        : `Off: new props are made on this computer, by ${here}${ready.length ? `. Still on without the boost: ${who(ready)}` : ", and nothing leaves the house"}. On: ${who(b.cloud)}.`;   // (Nov 7: Gemini and Nemotron work with the boost off too, so "nothing leaves" wasn't true)
       bGo.disabled = false; bGo.textContent = b.on ? "Turn the cloud boost off" : "Turn the cloud boost on";
     }
     fetch("/api/cloud-boost").then((r) => r.json()).then(paintBoost).catch(() => { bInfo.textContent = "Can't reach Mochi's server."; });
@@ -479,7 +548,7 @@
         <td>${esc(when(j.created_at))}</td><td><span class="stamp ${esc(j.status)}" title="${esc(j.error || "")}">${esc(STATUS[j.status] || j.status)}</span>${j.status === "done" && j.ms ? ` <small>${Math.round(j.ms / 1000)} s</small>` : ""}</td></tr>`).join("")
         + (q.length > 6 ? `<tr class="empty"><td colspan="4">and ${q.length - 6} more</td></tr>` : "")
       : `<tr class="empty"><td colspan="4">Nothing on the bench. Ask him to make you something.</td></tr>`;
-    $("props").innerHTML = r.props.length ? r.props.map((p, i) => `<article class="tag" style="transform:rotate(${tilt(i)}deg)"><p class="name">${esc(p.name)}</p>${p.thumb ? `<img class="pic" src="${esc(p.thumb)}" alt="${esc(p.name)}, front and three-quarter views" loading="lazy">` : ""}<p class="why">${esc(p.origin)}</p>${p.madeBy ? `<p class="small made-by">written by ${esc(p.madeBy.wrote.join(" and "))}${p.madeBy.checked.length ? `, looked over by ${esc(p.madeBy.checked.join(" and "))}` : ""}${p.madeBy.practised ? `; practised on his own${p.madeBy.was ? ` (it used to look like ${esc(p.madeBy.was)})` : ""}` : ""}</p>` : ""}
+    $("props").innerHTML = r.props.length ? r.props.map((p, i) => `<article class="tag" style="transform:rotate(${tilt(i)}deg)"><button type="button" class="rm" data-remove="${p.id}" title="Take it off his shelf (it stays in his saved props)">remove</button><p class="name">${esc(p.name)}</p>${p.thumb ? `<img class="pic" src="${esc(p.thumb)}" alt="${esc(p.name)}, front and three-quarter views" loading="lazy">` : ""}<p class="why">${esc(p.origin)}</p>${p.madeBy ? `<p class="small made-by">written by ${esc(p.madeBy.wrote.join(" and "))}${p.madeBy.checked.length ? `, looked over by ${esc(p.madeBy.checked.join(" and "))}` : ""}${p.madeBy.practised ? `; practised on his own${p.madeBy.was ? ` (it used to look like ${esc(p.madeBy.was)})` : ""}` : ""}</p>` : ""}
         <div class="small">made ${esc(shortDay(p.created_at))}${p.uses ? `<br>used ${p.uses} time${p.uses > 1 ? "s" : ""}` : ""}</div></article>`).join("")
       : `<article class="tag blank" style="transform:rotate(-2deg)"><p class="name">Empty hook</p><p class="why">Nothing on the shelf yet. Ask him to make you something and it hangs here once it's done.</p></article>`;
     $("moves").innerHTML = r.moves.length ? r.moves.map((m) => `<article class="card"><p class="name">${esc(m.name)}</p><p class="why">${esc(m.origin)}</p>

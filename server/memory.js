@@ -4,6 +4,7 @@
 import { DatabaseSync } from "node:sqlite";
 import fs from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS facts (
@@ -57,6 +58,13 @@ CREATE TABLE IF NOT EXISTS turns (
   role TEXT NOT NULL, text TEXT NOT NULL, meta TEXT   -- JSON: feelings, actions, crisis
 );
 CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);
+-- his saved props (Nov 7, Binoy: "keep the good designed props somewhere in the backend to be accessed later"): a copy of
+-- each prop he made, taken before a shelf clear, a delete, a reset or Day Zero. Nothing resets this table.
+CREATE TABLE IF NOT EXISTS library (
+  id INTEGER PRIMARY KEY, saved_at TEXT NOT NULL DEFAULT (datetime('now')),
+  name TEXT NOT NULL, archetype TEXT NOT NULL, recipe TEXT NOT NULL, origin TEXT, source TEXT, meta TEXT,
+  good INTEGER NOT NULL DEFAULT 0, why TEXT, hash TEXT UNIQUE
+);
 `;
 
 // who made a prop (Nov 7, the cloud boost): the models that wrote it and the ones that looked it over, by name
@@ -153,6 +161,24 @@ export function openMemory(file) {
     moveById(id) { const m = q("SELECT id, name, recipe, prop_archetype, origin, skill FROM moves WHERE id = ?").get(id); return m && { ...m, recipe: JSON.parse(m.recipe) }; },
     setPropThumb(id, thumb) { q("UPDATE props SET thumb = ? WHERE id = ?").run(thumb, id); },
     setPropRecipe(id, recipe) { q("UPDATE props SET recipe = ?, archetype = COALESCE(?, archetype) WHERE id = ?").run(JSON.stringify(recipe), recipe && recipe.archetype ? String(recipe.archetype) : null, id); },   // (a fix can make it another kind: Nov 4, the rocket ship became a ride)
+    // ---- his saved props (the library): kept through clears, deletes, resets and Day Zero
+    saveToLibrary(ids, why = "saved") {   // ids: prop ids (or "all" for every prop he made, on the shelf or put away)
+      const rows = ids === "all" ? q("SELECT id, name, archetype, recipe, origin, source, meta FROM props WHERE source != 'pocket'").all()
+        : (Array.isArray(ids) ? ids : [ids]).map((id) => q("SELECT id, name, archetype, recipe, origin, source, meta FROM props WHERE id = ? AND source != 'pocket'").get(+id)).filter(Boolean);   // (pocket things are hand-made patterns: always there)
+      let n = 0;
+      for (const r of rows) {
+        let meta = {}; try { meta = r.meta ? JSON.parse(r.meta) : {}; } catch (_) { /* old row */ }
+        const good = meta.matched || meta.approved || meta.liked || meta.adjusted ? 1 : 0;
+        const hash = createHash("sha1").update(`${String(r.name).toLowerCase()}|${r.recipe}`).digest("hex");
+        n += q(`INSERT INTO library (name, archetype, recipe, origin, source, meta, good, why, hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(hash) DO UPDATE SET good = MAX(library.good, excluded.good), saved_at = datetime('now')`)
+          .run(r.name, r.archetype, r.recipe, r.origin, r.source, r.meta, good, why, hash).changes;
+      }
+      return n;
+    },
+    library() { return q("SELECT id, saved_at, name, archetype, origin, source, good, why FROM library ORDER BY good DESC, saved_at DESC, id DESC LIMIT 300").all(); },
+    libraryItem(id) { const r = q("SELECT * FROM library WHERE id = ?").get(+id); return r && { ...r, recipe: JSON.parse(r.recipe), meta: r.meta ? JSON.parse(r.meta) : {} }; },
+    removeProp(id) { return q("UPDATE props SET kept = 0 WHERE id = ? AND kept = 1").run(+id).changes; },   // off the shelf (a copy is in the library first)
     clearProps() {   // off the shelf (kept = 0), not deleted: restoreProps brings them back
       const ids = q("SELECT id FROM props WHERE kept = 1").all().map((r) => r.id);
       if (ids.length) q("UPDATE props SET kept = 0 WHERE kept = 1").run();
