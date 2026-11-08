@@ -61,6 +61,8 @@ Measured on 408 messages Mochi had never seen. T-Mobile asked teams to make thei
 
 On our 48 hand-written test messages, the three together caught every scam with no false alarms.
 
+**A second, outside test:** 500 messages written by ChatGPT (270 scams across all nine types, 230 normal, 200 of them marked subtle), never used for training. All three together caught 98% of the scams (at least 29 of 30 in every type), and 93% of their alarms were real scams. When Mochi said "pretty sure", he was right 307 of 308 times; "fairly sure", 168 of 192.
+
 ## Where to look in the code
 
 | File | What's in it |
