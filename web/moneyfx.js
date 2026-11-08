@@ -25,7 +25,7 @@
       if (who === "prop" && P && P.heldScreen) { const s = P.heldScreen("hand"); if (s && isFinite(s.x)) return { x: s.x, y: s.y - 10 }; }
       if (who === "cocoa" && m && m.screenOf) { const s = m.screenOf("cocoa"); if (s) return { x: s.x, y: s.y - 70 }; }
       const h = m && m.headPoint ? m.headPoint() : null;
-      if (h && isFinite(h.x)) return who === "mimi" ? { x: h.x - Math.min(170, innerWidth * 0.2), y: h.y + 60 } : { x: h.x, y: h.y + 10 };   // (just over his face, so it rises past his head)
+      if (h && isFinite(h.x)) return who === "mimi" ? { x: h.x + Math.min(130, innerWidth * 0.15), y: h.y + 20 } : { x: h.x, y: h.y + 10 };   // (just over his face, so it rises past his head; Mimi stands on his right)
     } catch (_) { /* not ready */ }
     return { x: innerWidth / 2, y: innerHeight * 0.35 };
   }
