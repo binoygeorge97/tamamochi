@@ -1,5 +1,6 @@
 // The chat brain: LM Studio (OpenAI-compatible) playing Mochi, with the buddy tools.
 // Returns { text, actions, toolCalls } ; actions are kit moods/events the page plays (the brain/body contract).
+import { narrated } from "../shared/speech.js";
 import { CONFIG } from "./config.js";
 import { PROP_EXAMPLES, BIG_LAUNCHER, ROCKET_RIDE, FLYING, SAILING, eatStyle, resizeRecipe, sizeChange, MOVE_EXAMPLES } from "../shared/craft.js";
 import { bookSummary } from "../shared/activity-book.js";
@@ -991,7 +992,8 @@ export function makeBrain({ memory, fetchImpl = fetch, log = console, story = nu
     if (fl.lines.length || fl.dropped.length) content = fl.text;
     // their lines are words only: a "*giggles and twirls*" would show its asterisks in their bubble (review, Nov 3)
     const bare = (x) => ({ ...x, text: stripActions(String(x.text || "")).text.replace(/\s{2,}/g, " ").trim() });
-    fl.lines = fl.lines.map(bare).filter((x) => x.text && !gone.includes(x.who));
+    // "Cocoa: Cocoa starts laughing so hard he can't stop, dude!" (Nov 7): a stage direction, acted out, not said
+    fl.lines = fl.lines.map(bare).map((x) => { const n = narrated(x.text, x.who); return n ? { who: x.who, text: "", act: n.act, note: n.note } : x; }).filter((x) => (x.text || x.act) && !gone.includes(x.who));
     if (fl.lines.length) effects.friendSay = fl.lines;
     // talking to Mimi or Cocoa (the button by the message box, or "Mimi, …") and the model answered as Mochi with no
     // "Mimi: …" line (M5, Nov 3: "the talking to a particular character option doesn't seem to work"): it was her answer

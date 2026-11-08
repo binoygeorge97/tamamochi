@@ -240,3 +240,18 @@ export function parseSpeech(line, { maxPiece = 240 } = {}) {
   if (out.length) out[out.length - 1].pause = 0;
   return out.map((s) => ({ text: s.text, rate: +s.rate.toFixed(3), vol: +s.vol.toFixed(3), pitch: +s.pitch.toFixed(2), pause: Math.round(s.pause) }));
 }
+
+/* ---------- a friend narrating instead of acting (Nov 7, Binoy: "Cocoa said his action instead of acting it out":
+ * "Cocoa starts laughing so hard he can't stop, dude!"). A line that starts with the speaker's own name and a verb is a
+ * stage direction: it's acted out (a giggle, a cheer, a dance…) and shown as a note, not said. "Mochi looks amazing!"
+ * from Mimi is still words: only their own name counts. */
+const NARR = /^[\s*(\[]*(mimi|cocoa|mochi)\s+(?:(?:just|then|suddenly|happily|quickly|slowly|really)\s+)?(?:starts?|begins?|bursts?|breaks?|laughs?|laughing|giggles?|giggling|chuckles?|snorts?|smiles?|grins?|beams?|jumps?|hops?|bounces?|runs?|races?|walks?|wanders?|waves?|hugs?|dances?|dancing|spins?|twirls?|nods?|shrugs?|sighs?|gasps?|blushes|cries|sniffles|claps?|cheers?|looks?|stares?|peeks?|rolls?|falls?|tumbles?|leaves|heads?|comes?|winks?|bows?|pouts?|frowns?|squeals?|screams?|yawns?|stretches|wiggles?|throws?|grabs?|holds?|takes?|gives?|hands?|puts?|pulls?|pushes|sits?|stands?|lies|flops?|high-fives?|fist-bumps?|pats?|pokes?|tickles?|kisses|boops?|nuzzles?|cuddles?|snuggles?|is\s+(?:laughing|giggling|dancing|crying|smiling|jumping|spinning|hiding))\b/i;
+const ACT_OF = [[/laugh|giggl|chuckl|snort/i, "laugh"], [/hug/i, "hug"], [/danc|spin|twirl|wiggl/i, "dance"], [/cheer|clap|jump|hop|bounc|squeal|high-five|fist-bump/i, "cheer"], [/wave|leave|heads? (?:home|off|out)/i, "wave"], [/cr(?:y|ies)|sniffl|sigh|pout|frown/i, "sad"]];
+/** { act, note } when the line is the speaker narrating themselves, else null */
+export function narrated(line, who) {
+  const t = String(line || "").trim(), m = NARR.exec(t);
+  if (!m || (who && m[1].toLowerCase() !== String(who).toLowerCase())) return null;
+  const act = (ACT_OF.find(([re]) => re.test(t)) || [null, "hello"])[1];
+  const note = t.replace(/^[\s*(\[]+|[\s*)\]]+$/g, "").replace(/,?\s*\b(?:dude|bro|lol)\b[!.]*$/i, "").replace(/[!.]+$/, "").trim();
+  return { act, note };
+}

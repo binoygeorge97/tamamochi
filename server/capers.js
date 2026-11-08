@@ -17,6 +17,7 @@
 //   friend_say who says line
 //   react     who reacts: how = laugh | annoyed | block | copy | throw_back | hug | leave | dance
 import { stripActions } from "./brain.js";
+import { narrated } from "../shared/speech.js";
 import { PROP_EXAMPLES } from "../shared/craft.js";
 import { momentOfDay, spice, tooLike, seedNow, wobble } from "./variety.js";
 const DO = ["call", "say", "use_on", "use", "show", "move", "friend_say", "react", "activity"];
@@ -112,6 +113,7 @@ export async function writeCaper({ llm, prop = null, move = null, premise = "", 
       who: ["mochi", "mimi", "cocoa"].includes(s.who) ? s.who : "mochi", do: DO.includes(s.do) ? s.do : "say",
       who2: ["mimi", "cocoa"].includes(s.who2) ? s.who2 : undefined, how: HOW.includes(s.how) ? s.how : undefined, line: stripActions(String(s.line || "")).text.replace(/^["“]|["”]$/g, "").slice(0, 90) }))   // words only: no (stage directions)
       .map((s) => { const fl = /^(mimi|cocoa)\s*:\s*(.+)$/i.exec(s.line); if (fl && s.who === "mochi") { s.who = fl[1].toLowerCase(); s.do = s.do === "react" ? "react" : "friend_say"; s.line = fl[2].replace(/^["“]|["”]$/g, ""); }   // "Mimi: Eep!" in his line is her line
+        { const n = s.who !== "mochi" && ["friend_say", "react"].includes(s.do) && narrated(s.line, s.who); if (n) { s.do = "react"; s.how = n.act === "hug" ? "hug" : n.act === "dance" ? "dance" : n.act === "wave" ? "leave" : "laugh"; s.line = ""; } }   // (a friend narrating: acted out, Nov 7)
         if (s.do === "use_on" && !prop) { s.do = "move"; }   // a move caper: he does the move for them
         if (s.do === "activity" && !ACT.includes(s.how)) s.how = "trick";
         if (s.do === "friend_say" && s.who === "mochi") s.who = s.who2 || "mimi"; if (s.do === "react" && s.who === "mochi") s.who = s.who2 || "mimi"; if ((s.do === "call" || s.do === "use_on" || s.do === "show") && !s.who2) s.who2 = s.who !== "mochi" ? s.who : "mimi"; if (s.do === "react" && !s.how) s.how = "laugh"; return s; })

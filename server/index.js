@@ -840,7 +840,7 @@ export async function createServer(opts = {}) {
       if (activity || later) sceneryNow().begin();
       const sceneItems = calm || f.crisis ? [] : sceneryNow().fromLine(r.text, { playing: !!(activity || later) });
       if (sceneItems.length) console.log(`[scenery] ${sceneItems.map((x) => x.name).join(", ")}`);
-      const said = [r.text, ...(r.friendSay || []).map((x) => `${x.who === "mimi" ? "Mimi" : "Cocoa"}: "${x.text}"`)].filter(Boolean).join("\n");
+      const said = [r.text, ...(r.friendSay || []).filter((x) => x.text).map((x) => `${x.who === "mimi" ? "Mimi" : "Cocoa"}: "${x.text}"`)].filter(Boolean).join("\n");
       memory.turn("assistant", said, { actions: r.actions, tools: r.toolCalls });
       if (r.fixed && r.fixed.id && !r.fixed.queued) work.rethumb.add(r.fixed.id);   // made smaller or bigger: a new shelf picture
       if (r.remembered && r.remembered.length) giftSweep();   // "I have an interview tomorrow": maybe a surprise

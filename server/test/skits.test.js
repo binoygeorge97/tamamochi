@@ -161,3 +161,15 @@ test("eating, asked for: 'eat your noodles', 'drink your tea' (a bite, a sip or 
   assert.equal(eatStyle("bowl of noodles"), "scoop"); assert.equal(eatStyle("cup of tea"), "sip"); assert.equal(eatStyle("cookie"), "bite");
   assert.equal(eatStyle("magnifying glass"), null); assert.equal(eatStyle("water pistol"), null); assert.equal(eatStyle("traffic cone"), null);
 });
+
+test("a friend narrating themselves is acted out, not said (Nov 7: \"Cocoa starts laughing so hard he can't stop, dude!\")", async () => {
+  const { clean } = await import("../skits.js");
+  const { narrated } = await import("../../shared/speech.js");
+  assert.equal(narrated("Cocoa starts laughing so hard he can't stop, dude!", "cocoa").act, "laugh");
+  assert.equal(narrated("Mochi looks amazing!", "mimi"), null, "another's name: still words");
+  assert.equal(narrated("I have to go now! See you later ♡", "mimi"), null);
+  const sk = clean({ title: "t", beats: [{ who: "cocoa", do: "arrive", with: "", how: "", line: "" }, { who: "cocoa", do: "friend_say", with: "", how: "", line: "Cocoa starts laughing so hard he can't stop, dude!" }, { who: "mimi", do: "friend_say", with: "", how: "", line: "*Mimi twirls happily*" }] }, {});
+  const c = sk.beats.find((b) => b.who === "cocoa" && b.do !== "arrive");
+  assert.equal(c.do, "feel"); assert.equal(c.how, "laugh"); assert.equal(c.line, "");
+  assert.ok(!sk.beats.some((b) => /twirls|laughing/.test(b.line || "")), "no stage directions said out loud");
+});

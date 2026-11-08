@@ -461,6 +461,14 @@
 <script type="module">
   import "/kit/dist/mochi.min.js";
   import { isCrisis } from "/shared/safety.js";
+  import { narrated } from "/shared/speech.js";
+  // a friend's line that narrates them ("Cocoa starts laughing so hard he can't stop", Nov 7): acted out, shown as a note
+  function actOut(w, n) {
+    const k = M(); if (!k) return;
+    if (n.act === "hug" && k.hug) k.hug(w); else if (k.friend) k.friend(w, { laugh: "giggle", cheer: "cheer", dance: "dance", wave: "hello", sad: "comfort" }[n.act] || "hello", 20000);
+    bubble(`[${n.note}]`, "sys");
+  }
+  const friendSpeaks = (w, line) => { const n = narrated(line, w); if (n) { actOut(w, n); return false; } return true; };
   const send = (name, detail = {}) => document.dispatchEvent(new CustomEvent("mochi:" + name, { detail }));
   const M = () => window.__mochi;
   const $ = (id) => document.getElementById(id);
@@ -877,9 +885,9 @@
           case "activity":   // he really paints (their portrait), juggles or does a trick, in the middle of the story
             if (sc.act) { if (sc.who2 && m.friend) m.friend(sc.who2, "hello", 40000); runActivity(sc.act, 0); }
             break;
-          case "friend_say": if (m.friendSay && line) { m.friendSay(who, line); bubble(line, "friend", who); } break;
+          case "friend_say": if (m.friendSay && line && friendSpeaks(who, line)) { m.friendSay(who, line); bubble(line, "friend", who); } break;
           case "react": {
-            const say = () => { if (m.friendSay && line) { m.friendSay(who, line); bubble(line, "friend", who); } };
+            const say = () => { if (m.friendSay && line && friendSpeaks(who, line)) { m.friendSay(who, line); bubble(line, "friend", who); } };
             if (sc.how === "annoyed") { say(); bubble(`[${FN(who)} storms off]`, "sys"); setTimeout(() => m.dismissFriend && m.dismissFriend(who), 2600); setTimeout(() => m.play("oops", 2200), 1200); }
             else if (sc.how === "leave") { say(); setTimeout(() => m.dismissFriend && m.dismissFriend(who), 1800); }
             else if (sc.how === "block") { if (m.friend) m.friend(who, who === "cocoa" ? "ready" : "giggle", 20000); say(); bubble(`[${FN(who)} blocks it]`, "sys"); setTimeout(() => m.play("surprised", 1800), 400); }
@@ -918,7 +926,7 @@
     const until = async (fn, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms && !fn()) await wait(120); return fn(); };
     const readMs = (line) => 1000 + 50 * String(line || "").length;
     const sayM = (line) => { m.say(line); bubble(line, "mochi"); };
-    const sayF = (w, line) => { if (m.friendSay) m.friendSay(w, line); bubble(line, "friend", w); };   // (their own bubble with their name on it, said in their voice: Nov 7)
+    const sayF = (w, line) => { if (!friendSpeaks(w, line)) return; if (m.friendSay) m.friendSay(w, line); bubble(line, "friend", w); };   // (their own bubble with their name on it, said in their voice: Nov 7)
     const here = (w) => !!((m.friends && m.friends()) || {})[w];
     const arrived = (w) => (m.arrived ? m.arrived(w) : here(w));
     const things = b.things || {};
@@ -1716,6 +1724,8 @@
       if (r.reply.cold && r.reply.cold.on && M() && M().cold) M().cold(true, r.reply.cold.until);   // his story gave him a cold ("Achoo! I think I'm catching a cold…")
       else if (r.reply.sneeze && M() && M().sneeze) M().sneeze();                                  // "Achoo!" in his words: on screen too
       (r.reply.friendSay || []).forEach((f, i) => setTimeout(() => {   // Cocoa's or Mimi's own line: their bubble on stage, their own line here
+        if (f.act) { actOut(f.who, f); return; }   // (a stage direction from the server: acted out, Nov 7)
+        if (!friendSpeaks(f.who, f.text)) return;
         const who = f.who === "mimi" ? "Mimi" : "Cocoa"; bubble(f.text, "friend", f.who, { quiet: true });   // the name tag says who
         if (window.VOICE) window.VOICE.speak(f.say || f.text, { who: f.who, after: true });
         if (M() && M().friendSay) M().friendSay(f.who, f.text);

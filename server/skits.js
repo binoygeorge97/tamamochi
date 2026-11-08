@@ -27,6 +27,7 @@
 //   dress      who dresses up for a job: with = a job (shared/jobs.js: doctor, police, chef…): its hat or outfit and
 //              its tool go on (Nov 7, Binoy: "maybe they could even use it in a skit")
 import { stripActions } from "./brain.js";
+import { narrated } from "../shared/speech.js";
 import { PROP_EXAMPLES } from "../shared/craft.js";
 import { momentOfDay, spice, tooLike, seedNow, wobble } from "./variety.js";
 import { JOBS, JOB_IDS, jobOf, jobsIn, outfit } from "../shared/jobs.js";
@@ -249,6 +250,8 @@ export function clean(skit, moment = {}) {
     const b = { who: ["mochi", "mimi", "cocoa"].includes(b0.who) ? b0.who : "mochi", do: DO.includes(b0.do) ? b0.do : "say", with: b0.do === "dress" ? jobOf(b0.with) || "" : ALL_THINGS.includes(b0.with) ? b0.with : "", how: FEEL.includes(b0.how) ? b0.how : "", line: stripActions(String(b0.line || "")).text.replace(/^["“]|["”]$/g, "").replace(/\s+/g, " ").trim().slice(0, 90) };
     const fl = /^(mimi|cocoa|mochi)\s*:\s*(.+)$/i.exec(b.line); if (fl) { b.who = fl[1].toLowerCase(); b.line = fl[2].replace(/^["“]|["”]$/g, ""); if (b.who !== "mochi" && (b.do === "say" || b.do === "aside")) b.do = "friend_say"; if (b.who === "mochi" && b.do === "friend_say") b.do = "say"; }
     if (b.do === "friend_say" && b.who === "mochi") b.do = "say";
+    // "Cocoa starts laughing so hard he can't stop" as Cocoa's line (Nov 7): acted out, not said
+    { const n = ["say", "aside", "friend_say", "feel", "hug", "dance"].includes(b.do) && narrated(b.line, b.who); if (n) { if (n.act === "hug" && b.who !== "mochi") { b.do = "hug"; b.line = ""; } else if (n.act === "dance") { b.do = "dance"; b.line = ""; } else { b.do = "feel"; b.how = { laugh: "laugh", cheer: "excited", sad: "sad", wave: "happy" }[n.act] || "happy"; b.line = ""; } } }
     if ((b.do === "say" || b.do === "aside") && b.who !== "mochi") b.do = "friend_say";
     if (b.do === "dress" && !b.with) continue;   // (a job the stage has: shared/jobs.js)
     if (["arrive", "give", "leave", "piggyback"].includes(b.do) && b.who === "mochi") { if (b.do === "give") continue; b.who = moment.who || "mimi"; }
