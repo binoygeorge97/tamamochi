@@ -1461,6 +1461,7 @@ class Mochi {
     let last = null;
     hit.addEventListener("pointerdown", (e) => {
       e.preventDefault();
+      if (this.viewNav && this.viewNav.g) return;   // (two fingers are moving the view)
       if (down && down.id !== e.pointerId) return;   // a second finger while the first is down: one press at a time (it used to leave him stuck "held")
       try { hit.setPointerCapture(e.pointerId); } catch (_) { /* old browsers */ }
       if (this.craft.posing) { this.craft.poseDown(e); return; }   // teaching a move: drags pose him
@@ -1490,6 +1491,7 @@ class Mochi {
       }, HOLD_MS);
     });
     hit.addEventListener("pointermove", (e) => {
+      if (this.viewNav && this.viewNav.g) return;
       if (this.craft.posing) { this.craft.poseMove(e); return; }
       if (this.hs.gest) { this.hs.move(e); return; }
       if (down && e.pointerId !== down.id) return;
@@ -1545,6 +1547,29 @@ class Mochi {
     });
     hit.addEventListener("pointercancel", (e) => { if (down && e.pointerId !== down.id) return; if (down && down.pull) { this.floor.cancel(); document.body.classList.remove("pulling"); } this.hs.gest = null; if (this.craft.posing) { this.craft.poseUp(e); down = null; return; } clearTimeout(this.holdT); if (down && down.drag) this.drop(); down = null; rub.last = null; pat.last = null; });
     hit.addEventListener("pointerleave", () => { if (!down) rub.last = null; });
+    // two fingers on the stage: pan and pinch the whole view (Nov 8). A one-finger press already under way (on him, or
+    // posing) ends first, so he isn't dragged while the view moves. Not over the chat, the menu or the message box.
+    {
+      const V = this.viewNav || (this.viewNav = { x: 0, y: 0, zoom: 1, g: null });
+      const skip = (t) => !!(t && t.closest && t.closest("#chat, .chat, .composer, #composer, .menu, .posebar, .dl, dialog, input, textarea, button, a, .storycard, .tries"));
+      const mid = (a, b) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }), gap = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      window.addEventListener("touchstart", (e) => {
+        if (e.touches.length !== 2 || [...e.touches].some((t) => skip(t.target))) return;
+        const a = e.touches[0], b = e.touches[1];
+        V.g = { m: mid(a, b), d: Math.max(24, gap(a, b)), x: V.x, y: V.y, zoom: V.zoom };
+        if (down) { if (down.pull) { this.floor.cancel(); document.body.classList.remove("pulling"); } clearTimeout(this.holdT); if (down.drag) this.drop(); down = null; rub.last = null; pat.last = null; }
+        if (this.craft.posing) { this.craft.posing.drags.clear(); this.craft.active = null; }
+        e.preventDefault();
+      }, { capture: true, passive: false });
+      window.addEventListener("touchmove", (e) => {
+        if (!V.g || e.touches.length < 2) return;
+        const a = e.touches[0], b = e.touches[1], m = mid(a, b);
+        this.setView(V.g.x + m.x - V.g.m.x, V.g.y + m.y - V.g.m.y, V.g.zoom * (gap(a, b) / V.g.d));
+        e.preventDefault();
+      }, { capture: true, passive: false });
+      const end = (e) => { if (V.g && e.touches.length < 2) V.g = null; };
+      window.addEventListener("touchend", end, { capture: true }); window.addEventListener("touchcancel", end, { capture: true });
+    }
     hit.addEventListener("contextmenu", (e) => {   // a long press picks Mochi up, no menu; a right-click on his prop opens the page's panel
       e.preventDefault();
       const ph = e.button === 2 ? this.craft.propHit(e.clientX, e.clientY) : false;
@@ -1701,7 +1726,21 @@ class Mochi {
   aimCamera() {
     const L = this.lens; if (!L) return;
     this.camera.position.set(0, 1.64, L.dist); this.camera.lookAt(0, 1.28, 0);
+    this.camera.zoom = (this.viewNav && this.viewNav.zoom) || 1;   // (two fingers pinched the view: Nov 8)
     this.camera.setViewOffset(L.w, L.h, -L.pl * L.w, -L.pt * L.h, L.cw, L.ch);   // (and updates the projection)
+  }
+  /** the whole view moved and/or zoomed by two fingers (Nov 8, Binoy: "a way to pan the room or area in the phone view
+   * using two fingers ... visibility of other objects that are usually hidden"): his box and the drawing move together
+   * (so a touch on him still lands on him), the drawing covers the window again, and the lens zooms */
+  setView(x, y, zoom) {
+    const V = this.viewNav || (this.viewNav = { x: 0, y: 0, zoom: 1, g: null }), vw = innerWidth || 800, vh = innerHeight || 600;
+    V.zoom = Math.max(0.5, Math.min(1.7, +zoom || 1)); V.x = Math.max(-vw * 0.6, Math.min(vw * 0.6, +x || 0)); V.y = Math.max(-vh * 0.45, Math.min(vh * 0.45, +y || 0));
+    if (Math.abs(V.zoom - 1) < 0.02) V.zoom = 1;
+    this.host.style.translate = V.x || V.y ? `${Math.round(V.x)}px ${Math.round(V.y)}px` : "";
+    if (!this._viewRaf) this._viewRaf = requestAnimationFrame(() => { this._viewRaf = 0; this.resize(); });
+    const moved = !!(V.x || V.y || V.zoom !== 1);
+    this.host.classList.toggle("panned", moved);
+    try { document.dispatchEvent(new CustomEvent("mochi:view", { detail: { x: V.x, y: V.y, zoom: V.zoom, moved } })); } catch (_) { /* old browsers */ }
   }
   anchorFurniture() {   // his box moved by (applied.x, applied.y) px
     const F = this.furniture, A = this.actor; if (!F || !A) return;
@@ -2556,6 +2595,7 @@ function start() {
     input: (g) => H.input(g), where: (x, y) => H.where(x, y), returned: (why) => H.returned(why || "pointer"), spots: () => H.spots(),
     away: (ms) => { H.seen = performance.now() - ms; m.lastActive = performance.now() - ms; H.lastDone -= ms; H.lastOffer -= ms; },   // tests: as if nobody's been here for ms
   };
+  window.__mochiView = { set: (x, y, zoom) => m.setView(x, y, zoom), reset: () => m.setView(0, 0, 1), get: () => ({ ...(m.viewNav || { x: 0, y: 0, zoom: 1 }), g: undefined }) };   // the two-finger view (Nov 8)
   window.__mochiMoves = {
     play: (recipe, o = {}) => C.play(recipe, o),
     stop: () => C.stop(),

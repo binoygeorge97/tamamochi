@@ -111,6 +111,11 @@
   .skillpop.on { opacity: 1; transform: translateX(-50%); }
   .skillpop b { color: var(--accent); letter-spacing: 2px; font-weight: 400; }
   .skillpop i { font-style: normal; color: var(--label-3); margin-left: 6px; }
+  /* two fingers moved or pinched the view (Nov 8): one tap brings it back */
+  .viewreset { position: absolute; right: 14px; bottom: 14px; z-index: 12; font: 600 13px var(--ui); }
+  .viewreset[hidden] { display: none !important; }
+  /* the posing bar on a phone (Nov 8, Binoy: "blocks a lot of mochi"): its help text is two lines at most */
+  @media (max-width: 640px) { .posebar #poseHelp, .posebar #nameHelp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } }
   /* his first skill pack downloading (Nov 7: he knew nothing on day zero, so he learns about scams before he helps) */
   .dl { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); width: min(300px, calc(100% - 32px)); box-sizing: border-box; padding: 12px 14px 10px; border-radius: 16px; background: var(--card); box-shadow: var(--shadow-pop, 0 8px 22px rgba(40,30,60,.18)); z-index: 6; font: 13px/1.35 var(--ui); color: var(--label); animation: dlIn .25s ease-out; }
   .dl-t { margin: 0; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--label-3); }
@@ -369,6 +374,7 @@
   <div class="status" id="status">connecting…</div>
   <a class="growth" id="growth" href="/room" target="_blank" title="How far he's come (opens his workshop)" hidden></a>
   <div class="skillpop" id="skillpop" role="status" aria-live="polite"></div>
+  <button type="button" class="pill viewreset" id="viewReset" hidden title="Back to where he was">⤢ Re-center</button>
   <div class="dl" id="dl" role="status" aria-live="polite" hidden><p class="dl-t">Downloading a skill pack</p><p class="dl-n" id="dlName"></p><div class="dl-bar"><i id="dlBar"></i></div><ul id="dlItems"></ul></div>
   <div id="mochi" class="mochi" aria-hidden="true" title="Mochi" data-pad-x="1.15" data-cover="viewport" data-roam="page" data-floor="#composer">
     <canvas></canvas><div class="mochi-hit"></div><div class="mochi-dots"><i></i><i></i><i></i></div>
@@ -546,6 +552,9 @@
     bubble(`[downloading a skill pack: ${(d && d.skill) || "a new skill"}]`, "sys keep");
     return dlDone;
   }
+  // two fingers moved the view: a button to bring it back
+  document.addEventListener("mochi:view", (e) => { $("viewReset").hidden = !(e.detail && e.detail.moved); });
+  $("viewReset").addEventListener("click", () => { if (window.__mochiView) window.__mochiView.reset(); });
   // a scene that stops on a question (the scam game): if nobody answers, Mochi shows the answer himself, so it ends
   let wrapT = null;
   function waitForAnswer() {

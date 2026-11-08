@@ -133,3 +133,10 @@ test("data dressed up as words never reaches his bubble (shared Mochi, Nov 7: `<
   assert.equal(plainText("Use <code>hello</code> to greet me!"), "Use hello to greet me!", "a code block of plain words is just unwrapped");
   assert.equal(plainText("Here you go! {whisper}it's a secret{/whisper} {excited} Yay! {rate=0.8}slow{/}"), "Here you go! {whisper}it's a secret{/whisper} {excited} Yay! {rate=0.8}slow{/}", "voice tags stay");
 });
+
+test("a prop request never reaches the workbench as \"undefined\" (Nov 7)", async () => {
+  const { nameArg } = await import("../brain.js");
+  assert.equal(nameArg({ item: "hair dryer" }), "hair dryer");
+  assert.equal(nameArg({ name: "undefined", description: "a red kite" }), "a red kite");
+  assert.equal(nameArg({}), "");
+});

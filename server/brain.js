@@ -102,6 +102,14 @@ export const TOOLS = [
 ];
 
 const TOOL_NAMES = TOOLS.map((t) => t.function.name);
+/** the thing a request_prop / request_move call is for, whichever key it came under (never "undefined") */
+export function nameArg(args = {}) {
+  for (const k of ["name", "item", "thing", "prop", "object", "move", "request", "what", "title", "value", "arg", "description"]) {
+    const v = args && args[k];
+    if (typeof v === "string" && v.trim() && !/^(?:undefined|null|none|n\/a)$/i.test(v.trim())) return v.trim().slice(0, 80);
+  }
+  return "";
+}
 // each tool's main argument, for a call written with just a value: request_prop(sword) (M5, Nov 4: it was left in his
 // words, "Let me get to work on my workbench right away! request_prop(sword)")
 const TOOL_PRIMARY = Object.fromEntries(TOOLS.map((t) => { const P = t.function.parameters || {}; return [t.function.name, (P.required || [])[0] || Object.keys(P.properties || {})[0]]; }));
@@ -794,6 +802,10 @@ export function makeBrain({ memory, fetchImpl = fetch, log = console, story = nu
         return `remembered: ${args.text}`;
       }
       case "request_prop": {
+        // (Nov 7: a call written out in his words came back with its name under another key, and the workbench made a
+        // prop called "undefined"; whatever it was called, it's the name, and with no name there's nothing to make)
+        args.name = nameArg(args);
+        if (!args.name) return `say what to make: call request_prop with a name`;
         const built = builtinProp(`${args.name || ""} ${args.description || ""}`);
         if (built) {   // never queue what the kit already draws ("do you have a xmas hat?" queued one on the M5, Nov 1)
           if (built.costume) effects.actions.push({ kind: "costume", name: built.costume });
@@ -806,6 +818,8 @@ export function makeBrain({ memory, fetchImpl = fetch, log = console, story = nu
         return r.duplicate ? `already on the workbench, it's coming` : r.status === "someday" ? `workbench is full; it went on the someday list` : `queued on the workbench. You don't know when it will be ready (it can take a while, and the workbench may be closed), so don't promise a time or say you're working on it right now`;
       }
       case "request_move": {
+        args.name = nameArg(args);
+        if (!args.name) return `say which move: call request_move with a name`;
         const builtMove = builtinMove(args.name);
         if (builtMove && !memory.findMove(args.name)) {   // a wave or a hop is already in his body: do it, don't learn it
           effects.actions.push({ kind: "mood", name: builtMove });

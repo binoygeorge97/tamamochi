@@ -215,6 +215,9 @@ export function openMemory(file) {
     scrapbook() { return q("SELECT id, created_at, entry, ref_table, ref_id FROM scrapbook ORDER BY id DESC LIMIT 100").all(); },
     // ---- queue (the worker takes one job at a time; the brain only enqueues)
     enqueue({ kind, request, source = "user", priority = 0.5, reason = null, context = null }) {
+      // (Nov 7: a prop called "undefined" reached the workbench; a request with no real name never does)
+      request = String(request ?? "").replace(/^\s*(?:undefined|null)\s*(?::\s*)?/i, "").trim();
+      if (!request) return { id: null, duplicate: false, status: "refused" };
       const dup = q("SELECT id FROM queue WHERE kind = ? AND status IN ('queued','working') AND lower(request) = lower(?)").get(kind, request);
       if (dup) return { id: dup.id, duplicate: true };
       const active = q("SELECT count(*) AS n FROM queue WHERE status IN ('queued','working')").get().n;
