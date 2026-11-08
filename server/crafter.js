@@ -364,7 +364,7 @@ export function makeCrafter({ llm, renderer = null, log = console, budgetMs = 60
       return propRecipe1(o, T, false);
     }
   }
-  async function propRecipe1({ request, context, archetype, name, previous, guess, fixes, base = null, drawing = null, variant = 0 }, T, short) {
+  async function propRecipe1({ request, context, archetype, name, previous, guess, fixes, base = null, drawing = null, variant = 0, gemini = false }, T, short) {
     const ex1 = (e) => exampleText(e, short), pcs = piecesFor(`${name} ${String(request).split(":")[0]}`);
     const A = ARCHETYPES[archetype], ex = pickExamples(examplesFor(archetype).filter((e) => e !== base), `${name} ${request}`, base ? 1 : 2, archetype === "ride");
     const vguide = archetype === "ride" ? vehicleGuide(`${name} ${String(request).split(":")[0]}`) : null;   // a vehicle: how one is put together
@@ -389,7 +389,7 @@ export function makeCrafter({ llm, renderer = null, log = console, budgetMs = 60
     const look = drawing && llm.vision !== false ? [drawing.png] : null, inks = drawnColours(drawing);
     if (drawing) lines.push("", `They drew it for you${look ? " (the picture)" : ""}. Follow their drawing: its overall shape and the features they drew${inks.length ? `, in their colours: ${inks.map((h) => `${CRAYON_NAMES[h]} ${h}`).join(", ")} (most used first)` : ""}. It's a quick crayon doodle, so make a neat toy version of it, not a copy of the wobbly lines.`);
     const t0 = Date.now();
-    const r = await llm.chat({ what: previous ? "fix" : "recipe", system, user: lines.join("\n"), schema: short ? compactSchema(archetype) : propSchema(archetype), schemaName: "prop", maxTokens: 2600, temperature: previous ? 0.35 : 0.55 + 0.12 * Math.min(3, variant), ...(look ? { images: look } : {}), ...(short ? { strictSchema: true } : {}) });
+    const r = await llm.chat({ what: previous ? "fix" : "recipe", ...(gemini ? { gemini: true } : {}), system, user: lines.join("\n"), schema: short ? compactSchema(archetype) : propSchema(archetype), schemaName: "prop", maxTokens: 2600, temperature: previous ? 0.35 : 0.55 + 0.12 * Math.min(3, variant), ...(look ? { images: look } : {}), ...(short ? { strictSchema: true } : {}) });
     T.recipes.push(Date.now() - t0); T.tokens += (r.usage && r.usage.completion_tokens) || 0;
     (T.models || (T.models = [])).push(r.provider ? `${r.provider}${r.provider === "local" ? "" : ` ${r.model}`}` : "local");   // who wrote it
     if (!r.json) throw new Error(`no JSON in the recipe reply (finish=${r.finish}, ${String(r.text).slice(0, 80)})`);
@@ -679,7 +679,10 @@ export function makeCrafter({ llm, renderer = null, log = console, budgetMs = 60
       ...(A.slot === "hand" ? [`It is held by its grip at [0, 0, 0].`] : [])].join("\n");
     let raw;
     try {
-      const r = await llm.chat({ what: "remake", system, user, schema: propSchema(archetype), schemaName: "prop", maxTokens: 2600, temperature: 0.3 });
+      // (Nov 8, Binoy: "whenever the user asks to update the current prop or is unhappy with the prop given, let the app
+      // use Gemini flash": a change they asked for goes to Gemini Flash, 3.8 or 3.6, whatever keys.json gives it; Gemma
+      // only when neither can, or the cloud is off)
+      const r = await llm.chat({ what: "remake", gemini: true, system, user, schema: propSchema(archetype), schemaName: "prop", maxTokens: 2600, temperature: 0.3 });
       T.recipes.push(Date.now() - t0); T.tokens += (r.usage && r.usage.completion_tokens) || 0;
       T.models = [r.provider ? `${r.provider}${r.provider === "local" ? "" : ` ${r.model}`}` : "local"];
       if (!r.json) throw new Error(`no JSON in the remake (finish=${r.finish})`);
@@ -706,7 +709,7 @@ export function makeCrafter({ llm, renderer = null, log = console, budgetMs = 60
         for (let round = 1; !best.matched && round < minTries && Date.now() - t0 + 30000 < maxMs; round++) {
           const fixes = await critique(name, recipe.request || name, curGuess, curUrl, cur, T);
           step({ phase: "write", round, from: "critique", fixes: fixes.slice(0, 3) });
-          const raw2 = await propRecipe({ request: `${name}: ${String(change).slice(0, 200)}`, context: "", archetype, name, previous: cur, guess: curGuess, fixes: [...fixes, `Keep the change they asked for: ${String(change).slice(0, 160)}`] }, T);
+          const raw2 = await propRecipe({ request: `${name}: ${String(change).slice(0, 200)}`, context: "", archetype, name, previous: cur, guess: curGuess, fixes: [...fixes, `Keep the change they asked for: ${String(change).slice(0, 160)}`] , gemini: true }, T);
           const v2 = validateProp({ ...raw2, archetype, name, ...(recipe.heavy ? { heavy: true } : {}) }, { request: name });
           if (!v2.recipe) break;
           const out2 = { ...v2.recipe, name, archetype, request: recipe.request || name }, r2 = await pic(out2, round);

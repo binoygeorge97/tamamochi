@@ -246,8 +246,11 @@ export function makeRouter({ local, keysFile = null, env = process.env, fetchImp
     // background work (practice.js: "background": true in keys.json): that model for whatever it can do, Gemma for the
     // rest; the owner chose it for this, so it doesn't wait for the cloud boost switch
     const only = args.only ? String(args.only) : args.background && cfg.providers.some((p) => p.background) ? cfg.providers.find((p) => p.background).name : null;
-    const leads = cfg.providers.filter((p) => only ? p.name === only && (cfg.cloudFor.has(what) || args.anyTask) && !(args.images && args.images.length && p.vision === false) : fits(p, what, args) && (!p.tasks || p.tasks.includes(what)));
-    const backs = only ? [] : cfg.providers.filter((p) => !leads.includes(p) && fits(p, what, args) && p.backup && p.backup.includes(what));
+    // a change to a prop they asked for (crafter.js remakeProp, Nov 8): the Gemini models lead on it, in turn, whatever
+    // their roles in keys.json say; Gemma when they can't or the cloud is off
+    const gem = !only && args.gemini === true ? cfg.providers.filter((p) => isGemini(p) && (p.local || !cfg.off) && gate(p) && !(args.images && args.images.length && p.vision === false)) : [];
+    const leads = gem.length ? gem : cfg.providers.filter((p) => only ? p.name === only && (cfg.cloudFor.has(what) || args.anyTask) && !(args.images && args.images.length && p.vision === false) : fits(p, what, args) && (!p.tasks || p.tasks.includes(what)));
+    const backs = only || gem.length ? [] : cfg.providers.filter((p) => !leads.includes(p) && fits(p, what, args) && p.backup && p.backup.includes(what));
     if (!leads.length) return { ...(await local.chat(args)), provider: "local", model: local.model };
     // in turn: each job starts with the next provider (weights repeat a provider in the turn order)
     const LOCAL = { name: "local" };
@@ -266,7 +269,7 @@ export function makeRouter({ local, keysFile = null, env = process.env, fetchImp
       const t0 = now();
       s.used++;
       try {
-        const { only: _o, background: _b, anyTask: _a, timeoutMs: _t, ...ask } = args;
+        const { only: _o, background: _b, anyTask: _a, timeoutMs: _t, gemini: _g, ...ask } = args;
         const r = await s.call({ ...ask, signal: ctl.signal });
         const json = args.schema ? extractJson(r.text) : null;
         if (args.schema && !json) throw Object.assign(new Error(`${p.name} gave no JSON`), { status: 0, soft: true });

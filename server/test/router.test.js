@@ -173,3 +173,17 @@ test("Gemini does more of the workbench: first tries and Pip's checks, in turn w
   const off = readKeys({ file, env: {} });
   assert.deepEqual(off.providers[0].tasks, ["critique"]); assert.ok(!off.cloudFor.has("look"));
 });
+
+test("a change they asked for goes to Gemini Flash whatever its roles say; Gemma when it can't or the cloud is off (Nov 8)", async () => {
+  const local = fakeLocal(), C = cloud(), R = makeRouter({ local, env: ENV, fetchImpl: C.fetchImpl, log: quiet });
+  // with Gemini only critiquing and backing up (MOCHI_GEMINI_MORE off), a remake still goes to Gemini
+  for (let i = 0; i < 2; i++) assert.equal((await R.chat({ what: "remake", gemini: true, user: "make it green", schema })).json.from, "gemini");
+  assert.ok(!("gemini" in C.seen.at(-1).body), "the flag isn't sent to the model");
+  assert.equal((await R.chat({ what: "remake", user: "make it green", schema })).json.from === "gemini", false, "without the flag: the usual roles");
+  const D = cloud({ gemini: { status: 500, msg: "down" } }), R2 = makeRouter({ local: fakeLocal(), env: ENV, fetchImpl: D.fetchImpl, log: quiet });
+  assert.equal((await R2.chat({ what: "remake", gemini: true, user: "make it green", schema })).provider, "local", "Gemini down: Gemma");
+  const R3 = makeRouter({ local: fakeLocal(), env: { ...ENV, MOCHI_CLOUD: "off" }, fetchImpl: C.fetchImpl, log: quiet });
+  assert.equal((await R3.chat({ what: "remake", gemini: true, user: "make it green", schema })).provider, "local", "cloud off: Gemma");
+  const R4 = makeRouter({ local: fakeLocal(), env: ENV, fetchImpl: C.fetchImpl, log: quiet, gate: (p) => p.local });
+  assert.equal((await R4.chat({ what: "remake", gemini: true, user: "make it green", schema })).provider, "local", "cloud boost off: Gemma");
+});
