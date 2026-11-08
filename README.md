@@ -31,6 +31,7 @@ Things to try:
 - **Honest confidence:** "pretty sure", "fairly sure" or "not sure". On messages he had never seen, when he said "pretty sure" he was right 323 of 327 times.
 - **Warning signs in your message's own words**, the link taken apart ("the real website is verify-account.top"), and clear next steps, like forwarding to 7726.
 - **Privacy shield:** names, phone numbers, codes, emails and card numbers are replaced with [NAME], [PHONE], [CODE] before anything leaves the computer, and the card shows exactly what was sent.
+- **New scams every game:** Gemini Flash writes fresh made-up scam texts and disguised scam calls in the background, so the game doesn't repeat. Code decides the answer key (Mochi's own rules find the warning signs in the words), checks each call's three choices mean what they say, and throws away anything with a real company name, web address or phone number. If Nemotron can't read a pasted message, Gemini does, before Gemma.
 - **Learning by playing:** a scam-spotting game, skits where Cocoa in a silly disguise phones Mimi pretending to be the bank and you choose what she does, and Mimi remembers what you teach her.
 
 **He learns about money, and teaches it (PNC track).** On day zero he knows nothing about money; the first money question downloads a "money smarts" skill pack. Then:

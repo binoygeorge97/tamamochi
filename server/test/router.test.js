@@ -187,3 +187,15 @@ test("a change they asked for goes to Gemini Flash whatever its roles say; Gemma
   const R4 = makeRouter({ local: fakeLocal(), env: ENV, fetchImpl: C.fetchImpl, log: quiet, gate: (p) => p.local });
   assert.equal((await R4.chat({ what: "remake", gemini: true, user: "make it green", schema })).provider, "local", "cloud boost off: Gemma");
 });
+
+test("the scam check: Nemotron reads it; if it can't, Gemini before Gemma (Nov 8)", async () => {
+  const NEM = { ...ENV, MOCHI_GEMINI_MORE: "off" };
+  const keys = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "mochi-keys-")), "keys.json");
+  fs.writeFileSync(keys, JSON.stringify({ more: [{ name: "nemotron-brev", baseUrl: "https://brev.example/v1", key: "k", model: "nemotron", background: true }] }));
+  const C = cloud({ openai: { status: 500, msg: "down" } });   // (the mock answers Brev as "openai")
+  const R = makeRouter({ local: fakeLocal(), keysFile: keys, env: NEM, fetchImpl: C.fetchImpl, log: quiet });
+  const r = await R.chat({ what: "scamcheck", user: "is this a scam?", schema, background: true, anyTask: true, thenGemini: true });
+  assert.equal(r.provider, "gemini");
+  const r2 = await makeRouter({ local: fakeLocal(), keysFile: keys, env: NEM, fetchImpl: C.fetchImpl, log: quiet }).chat({ what: "scamcheck", user: "?", schema, background: true, anyTask: true });
+  assert.equal(r2.provider, "local", "without it: Gemma, as before");
+});

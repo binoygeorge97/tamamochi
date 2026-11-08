@@ -44,6 +44,17 @@ export const SCENES = [
     lines: { cocoa: ["Dude, Mimi texted me from a new number!", "‘Hi it's Mimi! I lost my phone! Buy me a gift card and send me the numbers!’", "‘Quick, it's an emergency! And don't tell Mochi!’ Should I help her, bro?"] } },
 ];
 const SCENE = Object.fromEntries(SCENES.map((s) => [s.id, s]));
+// new ones Gemini wrote just now (scamlive.js, Nov 8: "for tmobile skits, make use of Gemini flash to get an on the fly
+// skit"): index.js keeps them in memory and hands them here; looked up beside the hand-written ones
+const EXTRA_SCENES = new Map(), EXTRA_CALLS = new Map();
+export function setFreshScams({ scenes = [], calls = [] } = {}) {
+  EXTRA_SCENES.clear(); EXTRA_CALLS.clear();
+  for (const x of scenes) if (x && x.id) EXTRA_SCENES.set(x.id, x);
+  for (const x of calls) if (x && x.id) EXTRA_CALLS.set(x.id, x);
+}
+export const sceneOf = (id) => SCENE[id] || EXTRA_SCENES.get(id) || null;
+export const callOf = (id) => CALL[id] || EXTRA_CALLS.get(id) || null;
+const byWhom = (x) => (x && x.gen ? ` (a brand-new one, written just now by ${x.by || "Gemini"})` : "");
 const Name = (w) => (w === "mimi" ? "Mimi" : "Cocoa");
 export const PHONE = "magenta smartphone";
 
@@ -67,11 +78,11 @@ export function pickScene(recent = [], who = null, rnd = Math.random) {
 
 /** the scene: they come with the phone, read it out, hand it over; he stops them and asks you. Skit beats (skits.js). */
 export function scamScene(id, who, { learned = {} } = {}) {
-  const s = SCENE[id] || SCENES[0], w = s.who || who || "mimi", L = s.lines[w] || s.lines[Object.keys(s.lines)[0]];
+  const s = sceneOf(id) || SCENES[0], w = s.who || who || "mimi", L = s.lines[w] || s.lines[Object.keys(s.lines)[0]];
   // Teach Mimi (Nov 7): a warning sign you taught her before, in this message too: she spots it herself
   const knew = w === "mimi" ? s.tells.find((t) => learned[t]) : null;
   return {
-    title: `${Name(w)}'s ${s.kind === "call" ? "phone call" : "text"}`,
+    title: `${Name(w)}'s ${s.kind === "call" ? "phone call" : "text"}${byWhom(s)}`,
     beats: [
       { who: w, do: "arrive", with: PHONE, how: "", line: "" },
       ...L.map((line) => ({ who: w, do: "friend_say", with: "", how: "", line })),
@@ -103,7 +114,7 @@ export function gradeAnswer(text, quiz) {
 const list = (ids) => { const n = ids.map((id) => TELLS[id].name); return n.length < 2 ? n.join("") : `${n.slice(0, -1).join(", ")} and ${n.at(-1)}`; };
 /** what the brain is told for the turn they answer ("you" is Mochi) */
 export function answerNote(quiz, g, { spotted = 0 } = {}) {
-  const N = Name(quiz.who), s = SCENE[quiz.id] || SCENES[0];
+  const N = Name(quiz.who), s = sceneOf(quiz.id) || SCENES[0];
   const got = g.found.length ? `They spotted: ${g.found.map((id) => TELLS[id].say).join("; ")}.` : g.idk ? "They weren't sure." : "They had a feeling it was a scam but didn't say why.";
   const miss = g.missed.length ? ` Still to tell them: ${g.missed.map((id) => TELLS[id].say).join("; ")}.` : " They got every one!";
   return `\nThe scam-spotting game: ${N} just showed you a ${s.kind === "call" ? "phone call" : "text"} (made up for the game): "${s.lines[quiz.who] ? s.lines[quiz.who].join(" ") : ""}". You asked them what looks fishy, and this message is their answer. ${got}${miss} ` +
@@ -136,7 +147,7 @@ export const GAME_NOTE = "\nIn a moment, on screen: the scam-spotting game. A fr
 
 /** one line for the scrapbook */
 export function scrapLine(quiz, g) {
-  return `we played the scam-spotting game: ${Name(quiz.who)}'s ${(SCENE[quiz.id] || {}).kind === "call" ? "phone call" : "text"}; ${g.found.length ? `you spotted ${list(g.found)}` : "it was a tricky one"}`;
+  return `we played the scam-spotting game: ${Name(quiz.who)}'s ${(sceneOf(quiz.id) || {}).kind === "call" ? "phone call" : "text"}; ${g.found.length ? `you spotted ${list(g.found)}` : "it was a tricky one"}`;
 }
 
 
@@ -168,9 +179,9 @@ export function pickCall(recent = [], rnd = Math.random) {
 }
 /** the call, up to Mochi's pause and the three choices. Skit beats; .choice is what waits for your answer */
 export function callScene(id) {
-  const c = CALL[id] || CALLS[0];
+  const c = callOf(id) || CALLS[0];
   return {
-    title: c.title,
+    title: `${c.title}${byWhom(c)}`,
     beats: [
       { who: "cocoa", do: "arrive", with: "", how: "", line: "" },
       { who: "cocoa", do: "dress", with: "disguise", how: "", line: "" },
@@ -198,29 +209,30 @@ export function gradeChoice(text, choice) {
 }
 /** what happens after their pick. Skit beats; .good: they chose well */
 export function choiceScene(choice, pick, { reveal = false } = {}) {
-  const c = CALL[choice.id] || CALLS[0];
+  const c = callOf(choice.id) || CALLS[0];
+  const say = (k, dict) => (c.say && c.say[k]) || dict[c.id] || Object.values(dict)[0];   // (a new call brings its own lines)
   const beats = pick === "hang" ? [
     // nobody picked (Nov 7): Mochi shows the safe choice himself, so the scene still ends
-    ...(reveal ? [{ who: "mochi", do: "aside", line: { "bank-code": "Here's what I'd do: hang up and call the number on the card.", "game-prize": "Here's what I'd do: say no, and hang up.", grandkid: "Here's what I'd do: hang up and call the family on their real number." }[c.id] }] : []),
-    { who: "mimi", do: "friend_say", line: { "bank-code": "Nope! I'm hanging up and calling the number on my card. ♡", "game-prize": "No thank you! *click* ♡", grandkid: "I'll call the family on their real number first. Bye! ♡" }[c.id] },
+    ...(reveal ? [{ who: "mochi", do: "aside", line: say("reveal", { "bank-code": "Here's what I'd do: hang up and call the number on the card.", "game-prize": "Here's what I'd do: say no, and hang up.", grandkid: "Here's what I'd do: hang up and call the family on their real number." }) }] : []),
+    { who: "mimi", do: "friend_say", line: say("hangSay", { "bank-code": "Nope! I'm hanging up and calling the number on my card. ♡", "game-prize": "No thank you! *click* ♡", grandkid: "I'll call the family on their real number first. Bye! ♡" }) },
     { who: "mochi", do: "feel", how: "proud", line: "" },
     { who: "cocoa", do: "friend_say", line: c.unmask },
-    { who: "mochi", do: "aside", line: { "bank-code": "Perfect! A real bank never asks for your code.", "game-prize": "Perfect! Nobody real asks for your password.", grandkid: "Perfect! Call back on a number you already know." }[c.id] },
+    { who: "mochi", do: "aside", line: say("hangLesson", { "bank-code": "Perfect! A real bank never asks for your code.", "game-prize": "Perfect! Nobody real asks for your password.", grandkid: "Perfect! Call back on a number you already know." }) },
     { who: "mimi", do: "hug", line: "" },
   ] : pick === "ask" ? [
-    { who: "mimi", do: "friend_say", line: { "bank-code": "Hmm… then what's my account number?", "game-prize": "Wait, how do you know me?", grandkid: "Okay… what's the name of our cat?" }[c.id] },
-    { who: "cocoa", do: "friend_say", line: { "bank-code": "Uhh… that's… not important! The code, please!", "game-prize": "Uh… everybody knows you! Password, quick!", grandkid: "Uh… Mr. Fluffy? Gift cards, please!" }[c.id] },
+    { who: "mimi", do: "friend_say", line: say("askSay", { "bank-code": "Hmm… then what's my account number?", "game-prize": "Wait, how do you know me?", grandkid: "Okay… what's the name of our cat?" }) },
+    { who: "cocoa", do: "friend_say", line: say("dodge", { "bank-code": "Uhh… that's… not important! The code, please!", "game-prize": "Uh… everybody knows you! Password, quick!", grandkid: "Uh… Mr. Fluffy? Gift cards, please!" }) },
     { who: "mochi", do: "aside", line: "Good thinking! See how he dodged it? Now hang up!" },
     { who: "mimi", do: "friend_say", line: "Bye-bye! *click* ♡" },
     { who: "cocoa", do: "friend_say", line: c.unmask },
     { who: "mochi", do: "feel", how: "proud", line: "" },
     { who: "mimi", do: "hug", line: "" },
   ] : [
-    { who: "mimi", do: "friend_say", line: { "bank-code": "Okay, it's four, two…", "game-prize": "Okay, my password is…", grandkid: "Okay, I'll go buy the gift ca…" }[c.id] },
+    { who: "mimi", do: "friend_say", line: say("codeSay", { "bank-code": "Okay, it's four, two…", "game-prize": "Okay, my password is…", grandkid: "Okay, I'll go buy the gift ca…" }) },
     { who: "mochi", do: "feel", how: "surprised", line: "" },
     { who: "mochi", do: "say", line: "Stop, Mimi! Don't! That's exactly what a scammer wants!" },
     { who: "cocoa", do: "friend_say", line: "Darn, so close!" },
-    { who: "mochi", do: "aside", line: { "bank-code": "Never share a code: it's the key to your account. Hang up and call the bank yourself.", "game-prize": "Never share a password, not even for a prize.", grandkid: "Real family won't mind if you hang up and call them back." }[c.id] },
+    { who: "mochi", do: "aside", line: say("codeLesson", { "bank-code": "Never share a code: it's the key to your account. Hang up and call the bank yourself.", "game-prize": "Never share a password, not even for a prize.", grandkid: "Real family won't mind if you hang up and call them back." }) },
     { who: "mimi", do: "friend_say", line: "Phew! Thanks, Mochi. ♡" },
     { who: "cocoa", do: "friend_say", line: c.unmask },
     { who: "mimi", do: "hug", line: "" },
@@ -229,7 +241,7 @@ export function choiceScene(choice, pick, { reveal = false } = {}) {
 }
 /** what the brain is told on the turn they choose */
 export function choiceNote(choice, pick) {
-  const c = CALL[choice.id] || CALLS[0];
+  const c = callOf(choice.id) || CALLS[0];
   return `\nThe scam-call game: Cocoa (in a silly disguise, pretending to be a scammer) phoned Mimi: "${c.lines.join(" ")}". You paused it and asked what Mimi should do; they chose: "${c.options[pick]}". ${pick === "hang" ? "That's the best choice." : pick === "ask" ? "Asking a question is smart (the scammer will dodge it), but hanging up is safest." : "That's what the scammer wants: you'll stop Mimi in time on screen."} Reply in one or two short, warm sentences (${pick === "code" ? "kind, not scolding: it's tricky" : "cheer them on"}). Don't write lines for Mimi or Cocoa: they act it out on screen after you.`;
 }
 

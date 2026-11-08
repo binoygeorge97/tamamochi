@@ -48,6 +48,8 @@ import { revealVerdict, unsureLine } from "./verdict.js";
 import { moneyState, moneyIntent, moneyCard, moneyNote, whatIf, whatIfScene, applyPick, loanAskScene, loanDue, repay, mimiAskScene, mimiLearned, earn, earnNote, forecast, logIt, fmt as moneyFmt, the as theGoal, TEACH_NOTE as MONEY_TEACH, EARN_NOTE as MONEY_EARN, RULES as MONEY_RULES, MONEY_SKILL, skillDownload, SKILL_NOTE as MONEY_SKILL_NOTE, MONEY_SKILL_ASK, pickSkit, skitScene, skitAnswer, skitReveal, accrue, growth, BANK_RATE, setExtraSkits, extraSkits, depositScene, withdrawScene, shareScene, interestScene } from "./money.js";
 import { moneyLook, lookState } from "../shared/money-look.js";
 import { textIntent, writeOn, TEXT_MAX } from "./textfit.js";
+import { writeScam } from "./scamlive.js";
+import { setFreshScams } from "./scams.js";
 import { propActIntent, propActNote } from "../shared/propact.js";
 import { normColor } from "../shared/craft.js";
 import { makeRenderer } from "./renderer.js";
@@ -1160,8 +1162,10 @@ export async function createServer(opts = {}) {
         : calm || talkTo || f.crisis || state.strikes >= 3 || state.careUntil > Date.now() || busyOther ? null : skitMoment(text, r.text, { ...f, ...lastScene });
       // which game this time: a message to spot ("what looks fishy?") or Cocoa's scam call ("what should Mimi do?"), in turn
       if (mom && mom.need === "scam") {
-        if (scamsNow.lastMode === "text") Object.assign(mom, { callId: pickCall(scamsNow.recentCalls || []), who: "mimi" });
-        else Object.assign(mom, (({ id, who }) => ({ scene: id, who }))(pickScene(scamsNow.recent || [], mom.who)), { learned: memory.get("mimi.learned", null) || {} });
+        // a new one Gemini wrote just now, if one's ready (scamlive.js, Nov 8); else a hand-written one
+        const freshOne = (kind) => { const x = scamReady(kind).find((y) => kind === "call" || !mom.who || y.who === mom.who) || null; if (x) { const L = scamLib(); memory.set("scams.fresh", { ...L, played: [...L.played, x.id].slice(-40) }); setTimeout(() => writeOneScam(kind).catch(() => {}), 2000); } return x; };
+        if (scamsNow.lastMode === "text") { const fc = freshOne("call"); Object.assign(mom, { callId: fc ? fc.id : pickCall(scamsNow.recentCalls || []), who: "mimi" }); }
+        else { const fs = freshOne("scene"); Object.assign(mom, fs ? { scene: fs.id, who: fs.who } : (({ id, who }) => ({ scene: id, who }))(pickScene(scamsNow.recent || [], mom.who)), { learned: memory.get("mimi.learned", null) || {} }); }
       }
       const S0 = state.skit || (state.skit = { at: 0, needs: {}, recent: [] });
       const skitting = !!(mom && (["story", "jobs", "scam", "scam_after"].includes(mom.need) || (Date.now() - S0.at > 4 * 60000 && Date.now() - (S0.needs[mom.need] || 0) > 30 * 60000)) && (opts.skitRandom || Math.random)() < mom.chance);
@@ -1773,6 +1777,37 @@ export async function createServer(opts = {}) {
     const lastHour = gen.attempts.filter((a) => Date.now() - Date.parse(a.at) < 3600000).length;
     if (quiet && !gen.running && unplayed < 6 && lastHour < 6) writeOneSkit({ interruptibleSince: Date.now() }).catch(() => {});
   }, 75 * 1000) : null;
+  // ---- new scams for the T-Mobile games, written by Gemini on the fly (scamlive.js, Nov 8): a few kept ready (memory
+  // "scams.fresh"), played before the hand-written ones, refilled in the background (a cloud call: Gemma's not busy)
+  const scamLib = () => { const L = memory.get("scams.fresh", null) || {}; return { scenes: Array.isArray(L.scenes) ? L.scenes : [], calls: Array.isArray(L.calls) ? L.calls : [], played: Array.isArray(L.played) ? L.played : [] }; };
+  const scamReady = (kind) => { const L = scamLib(); return (kind === "call" ? L.calls : L.scenes).filter((x) => !L.played.includes(x.id)); };
+  setFreshScams(scamLib());
+  const sgen = { running: false, attempts: [] };
+  async function writeOneScam(kind = scamReady("call").length < scamReady("scene").length ? "call" : "scene") {
+    if (sgen.running) return { ok: false, problems: ["already writing one"] };
+    sgen.running = true;
+    try {
+      const L = scamLib(), who = Math.random() < 0.5 ? "mimi" : "cocoa";
+      const avoid = [...L.scenes.map((x) => x.idea).filter(Boolean), ...L.calls.map((x) => x.title)].slice(-8);
+      const r = await writeScam({ llm: craftLLM, kind, who, avoid, log: console });
+      sgen.attempts = [...sgen.attempts, { at: new Date().toISOString(), ok: r.ok }].slice(-40);
+      if (r.ok) {
+        const L2 = scamLib(), x = r.scene || r.call, key = kind === "call" ? "calls" : "scenes";
+        const next = { ...L2, [key]: [...L2[key], { ...x, at: new Date().toISOString() }].slice(-12) };
+        next.played = next.played.filter((id) => [...next.scenes, ...next.calls].some((y) => y.id === id));
+        memory.set("scams.fresh", next); setFreshScams(next);
+        console.log(`[scams] new ${kind} ready, written by ${r.by} in ${r.ms} ms: ${kind === "call" ? `"${x.title}"` : `${x.who === "mimi" ? "Mimi" : "Cocoa"}'s ${x.kind} (${x.tells.join(", ")})`}`);
+      } else console.log(`[scams] a new ${kind}: not kept (${(r.problems || []).slice(0, 2).join("; ")})`);
+      return r;
+    } finally { sgen.running = false; }
+  }
+  const scamOn = opts.scamgen ?? genOn;
+  const scamTimer = scamOn ? setInterval(() => {
+    const lastHour = sgen.attempts.filter((a) => Date.now() - Date.parse(a.at) < 3600000).length;
+    if (!sgen.running && lastHour < 24 && (scamReady("scene").length < 2 || scamReady("call").length < 2)) writeOneScam().catch(() => {});
+  }, 40 * 1000) : null;
+  app.get("/api/scams/fresh", (_, res) => { const L = scamLib(); res.json({ scenes: L.scenes.map(({ id, who, kind, tells, idea, by, at }) => ({ id, who, kind, tells, idea, by, at, played: L.played.includes(id) })), calls: L.calls.map(({ id, title, by, at }) => ({ id, title, by, at, played: L.played.includes(id) })), running: sgen.running }); });
+  app.post("/api/scams/fresh/generate", async (req, res) => { const r = await writeOneScam(req.body && req.body.kind === "call" ? "call" : "scene"); res.json({ ok: r.ok, by: r.by, ms: r.ms, problems: r.problems, scene: r.scene || undefined, call: r.call || undefined }); });
   app.get("/api/money/skits", (_, res) => res.json({ library: genLib().map(({ id, title, lesson, by, checkedBy, at, card }) => ({ id, title, lesson, card, by, checkedBy, at, played: ((((memory.get("money", null) || {}).skits) || {}).genPlayed || []).includes(id) })), log: memory.get("money.genlog", null) || [], cards: LESSON_CARDS.length, running: gen.running }));
   app.post("/api/money/skits/generate", async (_, res) => { const r = await writeOneSkit(); res.json({ ok: r.ok, by: r.by, checkedBy: r.checkedBy, problems: r.problems, ms: r.ms, skit: r.skit ? { id: r.skit.id, title: r.skit.title, lesson: r.skit.lesson } : null }); });
   setLearned(memory.get("patterns.learned", []));   // the patterns he's learned (Nov 7)
@@ -1792,7 +1827,7 @@ export async function createServer(opts = {}) {
   // warm LM Studio up with his persona so the first message after a (re)start is quick (not in tests)
   if (opts.warmup !== false && !opts.fetchImpl && process.env.MOCHI_WARMUP !== "off") setTimeout(() => brain.warmup().then((ms) => console.log(`[brain] warm-up ${ms} ms`)).catch((e) => console.log(`[brain] warm-up skipped: ${e.message}`)), 1000);
   return { app, server, memory, brain, state, port: addr.port, broadcast, work, workTick, craftLLM,
-    close: () => new Promise((ok) => { if (practice) practice.stop(); clearInterval(genTimer); clearInterval(soloTimer); clearInterval(giftTimer); clearInterval(revealTimer); clearTimeout(storyPace.timer); clearTimeout(storyPush); clearInterval(workTimer); clearInterval(benchTimer); if (renderer && renderer.close) renderer.close(); wss.close(); server.close(() => { memory.close(); ok(); }); }) };
+    close: () => new Promise((ok) => { if (practice) practice.stop(); clearInterval(genTimer); clearInterval(scamTimer); clearInterval(soloTimer); clearInterval(giftTimer); clearInterval(revealTimer); clearTimeout(storyPace.timer); clearTimeout(storyPush); clearInterval(workTimer); clearInterval(benchTimer); if (renderer && renderer.close) renderer.close(); wss.close(); server.close(() => { memory.close(); ok(); }); }) };
 }
 
 const same = (a, b) => (process.platform === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b);   // "c:\mochi" vs "C:\mochi"

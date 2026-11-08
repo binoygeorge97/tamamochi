@@ -262,7 +262,7 @@ export async function checkMessage(message, { llm = null, log = console, timeout
   if (llm) {
     try {
       const p = modelPrompt(shield.text);
-      const r = await llm.chat({ what: "scamcheck", ...p, schema: MODEL_SCHEMA, schemaName: "scamcheck", maxTokens: 500, temperature: 0.1, background: true, anyTask: true, think: false, timeoutMs });
+      const r = await llm.chat({ what: "scamcheck", ...p, schema: MODEL_SCHEMA, schemaName: "scamcheck", maxTokens: 500, temperature: 0.1, background: true, anyTask: true, thenGemini: true, think: false, timeoutMs });   // (Nemotron reads it; if Brev is down, Gemini, then Gemma: Nov 8)
       model = cleanModel(r.json); reader = r.provider || "local";
       if (!model) log.warn && log.warn(`[scamcheck] ${reader} gave no usable answer`);
     } catch (e) { log.warn && log.warn(`[scamcheck] ${e.message}`); }

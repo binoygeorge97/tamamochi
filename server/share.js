@@ -12,7 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const WORDS = ["kite", "cocoa", "mochi", "piggy", "cupcake", "teacup", "sneeze", "disco", "wand", "scarf", "globe", "puff", "pip", "kit"];
-const ADMIN = [/^\/api\/reset-demo/, /^\/api\/demo-snapshot/, /^\/api\/forget/, /^\/api\/props\/clear/, /^\/api\/props\/restore/, /^\/api\/props\/\d+\/remove/, /^\/api\/library\/\d+\/shelf/, /^\/api\/born/, /^\/api\/skills\/forget/, /^\/api\/money\/skits\/generate/, /^\/api\/review$/, /^\/api\/voice\/set/, /^\/api\/cloud-boost/];
+const ADMIN = [/^\/api\/reset-demo/, /^\/api\/demo-snapshot/, /^\/api\/forget/, /^\/api\/props\/clear/, /^\/api\/props\/restore/, /^\/api\/props\/\d+\/remove/, /^\/api\/library\/\d+\/shelf/, /^\/api\/born/, /^\/api\/skills\/forget/, /^\/api\/money\/skits\/generate/, /^\/api\/scams\/fresh\/generate/, /^\/api\/review$/, /^\/api\/voice\/set/, /^\/api\/cloud-boost/];
 const LIMITS = [[/^\/api\/chat$/, 14], [/^\/api\/doodle$/, 4], [/^\/api\/tts$/, 90], [/^\/api\/voice\/try$/, 10], [/^\/api\/stt$/, 12], [/^\/api\/feedback$/, 5], [/^\/api\/props\/adjust$/, 20], [/^\/api\/moves$/, 10], [/^\/api\/handshake$/, 6], [/^\/api\/paintings$/, 6], [/^\/api\/activity\/done$/, 20]];
 
 export function loadShare(dataDir) {

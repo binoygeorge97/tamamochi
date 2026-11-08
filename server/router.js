@@ -250,8 +250,10 @@ export function makeRouter({ local, keysFile = null, env = process.env, fetchImp
     // their roles in keys.json say; Gemma when they can't or the cloud is off
     const gem = !only && args.gemini === true ? cfg.providers.filter((p) => isGemini(p) && (p.local || !cfg.off) && gate(p) && !(args.images && args.images.length && p.vision === false)) : [];
     const leads = gem.length ? gem : cfg.providers.filter((p) => only ? p.name === only && (cfg.cloudFor.has(what) || args.anyTask) && !(args.images && args.images.length && p.vision === false) : fits(p, what, args) && (!p.tasks || p.tasks.includes(what)));
-    const backs = only || gem.length ? [] : cfg.providers.filter((p) => !leads.includes(p) && fits(p, what, args) && p.backup && p.backup.includes(what));
-    if (!leads.length) return { ...(await local.chat(args)), provider: "local", model: local.model };
+    // thenGemini (the scam check, Nov 8): when the one model named can't (Nemotron on Brev down), Gemini before Gemma
+    const gemBack = () => cfg.providers.filter((p) => isGemini(p) && !leads.includes(p) && (p.local || !cfg.off) && gate(p) && !(args.images && args.images.length && p.vision === false));
+    const backs = only ? (args.thenGemini ? gemBack() : []) : gem.length ? [] : cfg.providers.filter((p) => !leads.includes(p) && fits(p, what, args) && p.backup && p.backup.includes(what));
+    if (!leads.length && !(only && args.thenGemini && backs.length)) return { ...(await local.chat(args)), provider: "local", model: local.model };   // (a backup never takes the floor's job; thenGemini is asked for by name)
     // in turn: each job starts with the next provider (weights repeat a provider in the turn order)
     const LOCAL = { name: "local" };
     const ring = [...leads.flatMap((p) => Array(Math.max(1, Math.round(p.weight))).fill(p)), ...Array(cfg.localWeight || 0).fill(LOCAL)];
@@ -269,7 +271,7 @@ export function makeRouter({ local, keysFile = null, env = process.env, fetchImp
       const t0 = now();
       s.used++;
       try {
-        const { only: _o, background: _b, anyTask: _a, timeoutMs: _t, gemini: _g, ...ask } = args;
+        const { only: _o, background: _b, anyTask: _a, timeoutMs: _t, gemini: _g, thenGemini: _tg, ...ask } = args;
         const r = await s.call({ ...ask, signal: ctl.signal });
         const json = args.schema ? extractJson(r.text) : null;
         if (args.schema && !json) throw Object.assign(new Error(`${p.name} gave no JSON`), { status: 0, soft: true });
