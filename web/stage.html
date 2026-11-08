@@ -162,6 +162,12 @@
   .posebar button.ghost { background: transparent; color: var(--label-3); box-shadow: inset 0 0 0 1px currentColor; }
   .posebar input { font: inherit; min-width: 0; flex: 1; border: 0; border-radius: 10px; padding: 7px 10px; background: var(--bg); color: var(--label); box-shadow: inset 0 0 0 1px var(--line); }
   .posebar .naming-only { display: none; }
+  .posebar .row.moves { flex-wrap: wrap; gap: 5px; } .posebar .row.moves button { padding: 6px 9px; font-size: 12.5px; }
+  /* on a phone the posing bar sits at the bottom, so it doesn't cover him (Nov 7) */
+  @media (max-width: 640px) {
+    .stage.posing .posebar, .stage.naming .posebar { position: fixed; left: 10px; right: 10px; bottom: 10px; max-width: none; z-index: 30; font-size: 12.5px; gap: 5px; padding: 8px 10px; }
+    .posebar .row.moves { flex-wrap: nowrap; overflow-x: auto; }
+  }
   .stage .posebar.hsbar { display: none; }
   .stage.hsteach .posebar.hsbar { display: flex; }
   .stage.hsteach #teach, .stage.hsteach #teachHs, .stage.posing #teachHs, .stage.naming #teachHs { display: none; }
@@ -351,7 +357,9 @@
       <div class="row hs-check"><button id="hsSave">Save it</button><button class="ghost" id="hsAgain">Try again</button></div>
     </div>
     <div class="posebar" role="group" aria-label="Teaching a move">
-      <div class="posing-only" id="poseHelp">Drag his arms, head, body or feet. He remembers the timing. Stand him up first if the move is a standing one.</div>
+      <div class="posing-only" id="poseHelp">Drag his arms, head or feet; drag his tummy side to side to swing his hips. He remembers the timing. Stand him up first if the move is a standing one.</div>
+      <div class="row posing-only moves" role="group" aria-label="Hips and spins"><button class="ghost" data-hips="-1" title="Swing his hips left">◀ hips</button><button class="ghost" data-hips="1" title="Swing his hips right">hips ▶</button></div>
+      <div class="row posing-only moves" role="group" aria-label="Spins"><button class="ghost" data-spin="-0.5" title="Half turn left">↺ ½</button><button class="ghost" data-spin="0.5" title="Half turn right">↻ ½</button><button class="ghost" data-spin="-1" title="Spin left">↺ 1</button><button class="ghost" data-spin="1" title="Spin right">↻ 1</button></div>
       <div class="row posing-only"><button id="poseDone">Done</button><button class="ghost" id="poseStand" aria-pressed="false">Stand up</button><button class="ghost" id="poseCancel">Cancel</button></div>
       <div class="naming-only" id="nameHelp">What's this move called?</div>
       <div class="row naming-only"><input id="moveName" placeholder="my twirl" maxlength="40" aria-label="Move name"><button id="moveSave">Save</button></div>
@@ -1406,7 +1414,7 @@
     if (!window.__mochiMoves) return;
     const cur = PR() && PR().current();   // holding something: drag it too, and that's how he'll use it
     const withProp = cur && cur.slot === "hand" && !cur.throwable ? cur.name : null;
-    $("poseHelp").textContent = withProp ? `Drag his arms, head or feet, and drag the ${withProp} to turn and tip it. This becomes how he uses it.` : "Drag his arms, head, body or feet. He remembers the timing. Stand him up first if the move is a standing one.";
+    $("poseHelp").textContent = withProp ? `Drag his arms, head or feet, and drag the ${withProp} to turn and tip it. This becomes how he uses it.` : "Drag his arms, head or feet; drag his tummy side to side to swing his hips, and tap the buttons to spin. He remembers the timing. Stand him up first if the move is a standing one.";
     window.__mochiMoves.pose.start(); stage.classList.add("posing"); paintStand(); $("poseDone").focus();
   });
   $("poseCancel").addEventListener("click", () => { window.__mochiMoves.pose.cancel(); stage.classList.remove("posing"); });
@@ -1414,6 +1422,12 @@
   const paintStand = () => { const st = !!(M() && M().stance && M().stance().standing); $("poseStand").textContent = st ? "Sit down" : "Stand up"; $("poseStand").setAttribute("aria-pressed", String(st)); };
   $("poseStand").addEventListener("click", () => { const m = M(); if (!m || !m.stance) return; if (m.stance().standing) m.sit(); else m.stand(); setTimeout(paintStand, 60); });
   document.addEventListener("mochi:stance", paintStand); document.addEventListener("mochi:stance-touch", paintStand);
+  // hips and spins while posing (Nov 7, Binoy: "moving mochi's hips and even make him spin or half spin in either
+  // directions"): each tap is a swing or a turn, recorded with its timing like a drag
+  document.querySelectorAll(".posebar [data-hips], .posebar [data-spin]").forEach((b) => b.addEventListener("click", () => {
+    const P = window.__mochiMoves && window.__mochiMoves.pose; if (!P || !P.active()) return;
+    if (b.dataset.hips) P.hips(+b.dataset.hips); else P.spin(+b.dataset.spin);
+  }));
   $("poseDone").addEventListener("click", () => {
     const r = window.__mochiMoves.pose.done("my move", { skill: 0.2 });
     stage.classList.remove("posing");

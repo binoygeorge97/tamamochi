@@ -77,7 +77,7 @@ function mergeFins(a, b) {   // two crossed fin plates as one geometry (no extra
   return g;
 }
 const FACE_CH = { "face.smile": ["smile", 0.75], "face.blush": ["blush", 0.8], "face.mouth": ["mouthOpen", 0.9], "face.ears": ["ear", 1.0] };
-const POSE_CH = ["leftArm.raise", "leftArm.spread", "rightArm.raise", "rightArm.spread", "head.nod", "head.turn", "head.tilt", "body.hop", "body.lean", "body.spin", "leftLeg.kick", "rightLeg.kick", "prop.spin", "prop.tilt"];
+const POSE_CH = ["leftArm.raise", "leftArm.spread", "rightArm.raise", "rightArm.spread", "head.nod", "head.turn", "head.tilt", "body.hop", "body.lean", "body.spin", "body.hips", "leftLeg.kick", "rightLeg.kick", "prop.spin", "prop.tilt"];
 // Zero Day ammo: glowing, unlit, in the phosphor palette (green, cyan, amber, magenta)
 const ZD_AMMO = {
   water: { geo: "cube", size: [0.028, 0.022], colors: [0x39ff7a, 0x2fd8ff, 0xb8ffd2] },
@@ -591,6 +591,10 @@ export class Stagecraft {
       m.root.rotation.z += -0.35 * g("body.sway");
       m.body.rotation.x += 0.35 * g("body.lean");
       if (!this.reduce) m.root.rotation.y += TAU * g("body.spin");
+      // hips (Nov 7, Binoy: "the option of moving mochi's hips"): his bottom swings out to the side and twists a little,
+      // the head stays put and upright
+      const hips = g("body.hips") * big;
+      if (hips) { m.body.position.x += 0.24 * hips; m.body.rotation.z += 0.17 * hips; m.body.rotation.y += 0.3 * hips; m.neck.rotation.z -= 0.26 * hips; }
       m.neck.rotation.x += 0.5 * g("head.nod");
       m.neck.rotation.z += -0.4 * g("head.tilt");
       m.neck.rotation.y += 0.7 * g("head.turn");
@@ -1193,7 +1197,7 @@ export class Stagecraft {
     if (this.perf) this.endPerf(false);
     m.touch(); m.queue = []; m.cur = null;
     const vals = {}; for (const k of POSE_CH) vals[k] = 0;
-    this.posing = { vals, target: { ...vals }, samples: [], t0: 0, recording: false, drags: new Map(), lastSample: 0, full: false };
+    this.posing = { vals, target: { ...vals }, samples: [], t0: 0, recording: false, drags: new Map(), lastSample: 0, full: false, tweens: [] };
     m.mood = "posing"; m.setFace("posing");
     this.showHandles(true);   // the page's posing bar says what to do
   }
@@ -1223,8 +1227,29 @@ export class Stagecraft {
     if (!S.recording) { S.recording = true; S.t0 = performance.now(); S.lastSample = 0; }
     return true;
   }
+  /** the posing bar's buttons (Nov 7): a hip swing to one side and back, or a half or whole turn either way, eased */
+  poseTween(ch, to, ms, back = 0) {
+    const S = this.posing;
+    if (!S || !(ch in S.target)) return false;
+    if (!S.recording) { S.recording = true; S.t0 = performance.now(); S.lastSample = 0; }
+    const now = performance.now(), from = S.target[ch];
+    S.tweens = S.tweens.filter((w) => w.ch !== ch);
+    S.tweens.push({ ch, from, to, t0: now, ms, back, home: from });
+    return true;
+  }
+  poseHips(dir) { return this.poseTween("body.hips", dir < 0 ? -0.9 : 0.9, 190, 230); }
+  poseSpin(turns) { const S = this.posing; if (!S) return false; return this.poseTween("body.spin", clamp(S.target["body.spin"] + turns, -2, 2), Math.abs(turns) < 1 ? 650 : 1000); }
   stepPose(now, dt) {
     const S = this.posing, k = 1 - Math.exp(-dt * 20);   // the pose follows your finger closely, never jerkily
+    const ease = (x) => (x < 0.5 ? 2 * x * x : 1 - (-2 * x + 2) ** 2 / 2);
+    S.tweens = (S.tweens || []).filter((w) => {
+      const u = (now - w.t0) / w.ms;
+      if (u < 1) { S.target[w.ch] = w.from + (w.to - w.from) * ease(Math.max(0, u)); S.vals[w.ch] = S.target[w.ch]; return true; }
+      if (!w.back) { S.target[w.ch] = w.to; S.vals[w.ch] = w.to; return false; }
+      const u2 = (now - w.t0 - w.ms) / w.back;
+      if (u2 < 1) { S.target[w.ch] = w.to + (w.home - w.to) * ease(u2); S.vals[w.ch] = S.target[w.ch]; return true; }
+      S.target[w.ch] = w.home; S.vals[w.ch] = w.home; return false;
+    });
     for (const ch of POSE_CH) S.vals[ch] += (S.target[ch] - S.vals[ch]) * k;
     if (S.recording) this.sample(now, false);
     this.m.lastActive = now;   // no dozing off mid-lesson
@@ -1277,7 +1302,7 @@ export class Stagecraft {
     switch (D.part) {
       case "leftArm": case "rightArm": { const s = D.part === "rightArm" ? 1 : -1; set(`${D.part}.raise`, st[`${D.part}.raise`] + dy * 2.6); set(`${D.part}.spread`, st[`${D.part}.spread`] + s * dx * 2.6); break; }
       case "head": set("head.turn", st["head.turn"] + dx * 3); set("head.nod", st["head.nod"] - dy * 3); set("head.tilt", st["head.tilt"] + dx * 1.0); break;
-      case "body": set("body.spin", st["body.spin"] + (Math.abs(dx) > 0.06 ? (dx - Math.sign(dx) * 0.06) * 0.9 : 0)); /* a small dead zone, and a whole turn takes a long drag */ if (dy >= 0) { set("body.hop", st["body.hop"] + dy * 3); set("body.lean", st["body.lean"] * (1 - Math.min(1, dy * 6))); } else { set("body.lean", st["body.lean"] - dy * 3); set("body.hop", st["body.hop"] * (1 + Math.max(-1, dy * 6))); } break;
+      case "body": set("body.hips", st["body.hips"] + dx * 3.2); /* side to side: his hips swing (Nov 7; spins are the posing bar's buttons now, so a drag never sends him round and round) */ if (dy >= 0) { set("body.hop", st["body.hop"] + dy * 3); set("body.lean", st["body.lean"] * (1 - Math.min(1, dy * 6))); } else { set("body.lean", st["body.lean"] - dy * 3); set("body.hop", st["body.hop"] * (1 + Math.max(-1, dy * 6))); } break;
       case "leftLeg": case "rightLeg": { const out = (D.part === "rightLeg" ? 1 : -1) * dx; set(`${D.part}.kick`, st[`${D.part}.kick`] + (dy + Math.max(0, out) * 0.7) * 3.2); break; }   // up, or out to its side
       case "prop": set("prop.spin", st["prop.spin"] + dx * 1.4); set("prop.tilt", st["prop.tilt"] - dy * 2.2); break;   // across: it turns; up and down: it tips
     }
@@ -1323,7 +1348,8 @@ export function recipeFromSamples(samples, name = "my move") {
   const tracks = {};
   for (const ch of chans) {
     let keys = [[0, 0], ...use.map((s) => [s.t - t0, s.v[ch] || 0])];
-    const lastV = keys[keys.length - 1][1], rest = ch === "body.spin" || ch === "prop.spin" ? Math.round(lastV) : 0;
+    // (a spin rests on a whole turn; one left half way, as after a "½" tap, turns back the way it came, either side alike)
+    const lastV = keys[keys.length - 1][1], halfway = Math.abs(Math.abs(lastV % 1) - 0.5) < 0.15, rest = ch === "body.spin" || ch === "prop.spin" ? ((halfway ? Math.trunc(lastV) : Math.round(lastV)) || 0) : 0;   // (|| 0: no "-0")
     keys.push([end + 0.2 + Math.min(0.5, Math.abs(lastV - rest) * 0.5), rest]);   // ease home: longer if it's further away
     tracks[ch] = simplifyTrack(dedupeKeys(keys), MOVE_LIMITS.keys);
   }

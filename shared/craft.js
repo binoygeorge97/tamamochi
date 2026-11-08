@@ -707,6 +707,7 @@ export const CHANNELS = {
   "body.sway": { min: -1, max: 1, about: "leans sideways; + leans to the screen's right" },
   "body.lean": { min: -1, max: 1, about: "leans forward toward you (a bow) at +, back at -" },
   "body.spin": { min: -2, max: 2, about: "turns around on the spot; 1 is one full turn. Must end on a whole number (0, 1, -1, 2)" },
+  "body.hips": { min: -1, max: 1, about: "swings the hips sideways while the head stays put (a hip wiggle); + toward the screen's right" },
   "head.nod": { min: -1, max: 1, about: "+ looks down (a nod or bow), - looks up" },
   "head.tilt": { min: -1, max: 1, about: "+ tilts the head toward the screen's right" },
   "head.turn": { min: -1, max: 1, about: "+ turns the face toward the screen's right" },
@@ -742,7 +743,7 @@ const CHANNEL_ALIASES = (() => {
     }
   }
   Object.assign(a, { "body.jump": "body.hop", hop: "body.hop", jump: "body.hop", "body.bounce": "body.hop", "body.tilt": "body.sway", sway: "body.sway", lean: "body.lean", bow: "body.lean",
-    "body.turn": "body.spin", "body.rotate": "body.spin", spin: "body.spin", twirl: "body.spin", nod: "head.nod", "head.pitch": "head.nod", tilt: "head.tilt", "head.roll": "head.tilt",
+    "body.turn": "body.spin", "body.rotate": "body.spin", spin: "body.spin", twirl: "body.spin", hips: "body.hips", hip: "body.hips", "body.hip": "body.hips", "hips.sway": "body.hips", "body.wiggle": "body.hips", wiggle: "body.hips", "body.shimmy": "body.hips", nod: "head.nod", "head.pitch": "head.nod", tilt: "head.tilt", "head.roll": "head.tilt",
     "head.yaw": "head.turn", "head.shake": "head.turn", smile: "face.smile", eyes: "face.eyes", "face.happyeyes": "face.eyes", "face.happy": "face.eyes", blush: "face.blush",
     mouth: "face.mouth", "face.mouthopen": "face.mouth", ears: "face.ears", "face.ear": "face.ears", "prop.twirl": "prop.spin", "prop.rotate": "prop.spin" });
   return a;

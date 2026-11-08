@@ -357,3 +357,13 @@ test("stance edge cases: the idle sit doesn't wake him, an interrupted walk ease
   assert.ok(S.w.x < 0.6, "sat down by the kick"); assert.ok(Math.abs(m.root.position.x - xk) < 0.08, `didn't slide (${(m.root.position.x - xk).toFixed(2)})`);
   run(m, 1.2); assert.ok(S.walking() && S.w.x > 0.8, "back up and walking on"); run(m, 8); assert.ok(!S.walking(), "the walk finished afterwards"); assert.ok(Math.abs(m.root.position.x) < 0.02);
 });
+
+test("posing: hips are a channel; a half turn turns back either way, a turn and a half rests on one turn", { skip: !have }, () => {
+  const run = (vals) => SC.recipeFromSamples(vals.map((v, i) => ({ t: i * 0.1, v })), "wiggle");
+  const hips = run([{ "body.hips": 0 }, { "body.hips": 0.8 }, { "body.hips": -0.8 }, { "body.hips": 0.8 }, { "body.hips": 0 }]);
+  assert.equal(hips.ok, true); assert.ok(hips.recipe.tracks["body.hips"], "a hips track");
+  for (const [end, rest] of [[0.5, 0], [-0.5, 0], [1.5, 1], [-1.5, -1], [1, 1], [0.9, 1]]) {
+    const r = run([{ "body.spin": 0 }, { "body.spin": end / 2 }, { "body.spin": end }, { "body.spin": end }]);
+    assert.equal(r.recipe.tracks["body.spin"].at(-1)[1], rest, `ended at ${end}: rests at ${rest}`);
+  }
+});

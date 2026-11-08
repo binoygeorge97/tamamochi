@@ -1805,6 +1805,13 @@ class Mochi {
     if (!b) { b = document.createElement("div"); b.className = "mochi-say"; b.setAttribute("role", "status"); this.host.appendChild(b); }
     b.textContent = text; this.saidAt = performance.now();
     this.host.classList.add("saying");
+    // kept on screen (Nov 7, on a phone his bubble started 50 px off the left edge): nudged in after it's laid out
+    b.style.right = ""; b.style.left = "";
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => {
+      const r = b.getBoundingClientRect(), vw = innerWidth || 0;
+      if (r.width && r.left < 10) b.style.right = `calc(74% - ${Math.ceil(12 - r.left)}px)`;
+      else if (r.width && vw && r.right > vw - 10) b.style.left = `calc(74% - ${Math.ceil(r.right - vw + 12)}px)`;
+    });
     clearTimeout(this.sayTimer);
     this.sayTimer = setTimeout(() => this.host.classList.remove("saying"), 1800);
   }
@@ -2018,6 +2025,7 @@ class Mochi {
     if (bd1 > 0.5) this.body.scale.set(1 + breath * 0.9, 1 + breath * 0.3, 1 + breath * 0.5);   // lying: the side rises and falls
     else this.body.scale.set(1 + breath * 0.5, 1 + breath, 1 + breath * 0.5);
     this.body.rotation.x = v("lean") * 0.12 + v("slump") * 0.08;
+    this.body.rotation.y = 0; this.body.rotation.z = 0; this.body.position.x = 0;   // (a move's hip swing is added on top each frame: stagecraft.js)
     const kick = held > 0.3 ? Math.sin(t * (mood === "yanked" ? 20 : 6)) * (mood === "yanked" ? 0.3 : 0.12) * calm : 0;
     // (y and z too: the move layer adds a kick's swing out to the side every frame, and without this it piled up and
     // spun his legs round and round: Nov 2, "when I touch his legs… it just uncontrollably keeps rotating")
@@ -2553,7 +2561,7 @@ function start() {
     stop: () => C.stop(),
     playing: () => (C.perf ? { name: C.perf.name, skill: C.perf.skill, t: (performance.now() - C.perf.t0) / 1000 } : null),
     last: () => (C.lastPerf ? { id: C.lastPerf.id, name: C.lastPerf.name, skill: C.lastPerf.skill } : null),
-    pose: { start: () => C.poseStart(), done: (name, o) => C.poseDone(name, o), cancel: () => C.poseCancel(), active: () => !!C.posing, set: (ch, v) => C.poseSet(ch, v),
+    pose: { start: () => C.poseStart(), done: (name, o) => C.poseDone(name, o), cancel: () => C.poseCancel(), active: () => !!C.posing, set: (ch, v) => C.poseSet(ch, v), hips: (dir) => C.poseHips(dir), spin: (turns) => C.poseSpin(turns),
       anchors: () => C.anchors().map(([p, w]) => [p, C.screen(w)]) },
     limbs,
     lite: () => { m.dpr = 1; m.resize(); m.quality = 1; m.lighten(); },   // tests: no soft shadows, one pixel per pixel

@@ -181,6 +181,7 @@ export class FriendMoves {
       // round backwards a full turn in a quarter second after every dance spin: Nov 4 probe)
       if (!m.reduce) { const sp = g("body.spin"); R.g.rotation.y += TAU * lerp(Math.round(sp), sp, w); }
       R.g.rotation.z += -0.35 * g("body.sway") * w;
+      R.g.rotation.z += 0.12 * g("body.hips") * w; R.g.rotation.y += 0.2 * g("body.hips") * w;   // (a hip swing, roughly)
       R.body.rotation.x += 0.35 * g("body.lean") * w;
       const H = this.hands[J.who];
       if (H) {   // her copy stays upright in her hoof, turning and tipping with the move
