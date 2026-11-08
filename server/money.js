@@ -232,7 +232,7 @@ export function moneyCard(money, savings, now = Date.now()) {
   return { wallet: s.wallet, piggy: sv ? { goal: sv.goal, target: sv.target || null, saved: sv.saved || 0 } : null, loan: s.loan ? { who: s.loan.who, back: s.loan.back } : null,
     bank: s.bank && (s.bank.balance > 0 || s.bank.interest > 0) ? { balance: s.bank.balance, interest: s.bank.interest || 0, rate: BANK_RATE } : null, shared: s.shared || 0, upcoming: up,
     indicators: [{ id: "habit", name: "Saving habit", ...habit }, { id: "balance", name: "Spend and save", ...balance }, { id: "goal", name: "Goal", ...goal }],
-    forecast: fc ? fc.text : null, next, recent: s.log.slice(-4).reverse().map((e) => ({ kind: e.kind, amount: e.amount, what: e.what })), play: true };
+    forecast: fc ? fc.text : null, next, spentWeek: r2(spent), recent: s.log.slice(-4).reverse().map((e) => ({ kind: e.kind, amount: e.amount, what: e.what })), play: true };
 }
 /** how long to the goal, from what they really saved: the average of their last few saves (or their allowance) */
 export function forecast(s, sv, extra = 0) {
@@ -288,14 +288,14 @@ export function applyPick(money, savings, n, now = Date.now()) {
     const w = { ...p.w, can: s.wallet >= p.w.price };   // (the wallet as it is now, not as it was when they asked)
     if (w.can && n === 1) {
       s.wallet = Math.round((s.wallet - w.price) * 100) / 100; logIt(s, "spend", w.price, w.treat.name, now);
-      return { money: s, savingsAdd: 0, bought: w.treat, scene: buyScene(w.treat, w.price),
+      return { money: s, savingsAdd: 0, bought: w.treat, scene: buyScene(w.treat, w.price, { wallet: s.wallet }),
         note: `They chose to buy the ${w.treat.name} for ${fmt(w.price)} (wallet now ${fmt(s.wallet)}). Mimi hands it over. Be happy for them, no nagging; one short line.` };
     }
     if (n === 3 && (w.can || s.wallet >= SMALL.price)) {
       s.wallet = Math.round((s.wallet - SMALL.price) * 100) / 100; logIt(s, "spend", SMALL.price, "cookie (smaller treat)", now);
       const keep = w.can ? Math.round((w.price - SMALL.price) * 100) / 100 : 0;
       if (keep > 0 && goal && s.wallet >= keep) { s.wallet = Math.round((s.wallet - keep) * 100) / 100; logIt(s, "save", keep, `saved instead of the ${w.treat.name}`, now); }
-      return { money: s, savingsAdd: keep > 0 && goal ? keep : 0, bought: SMALL, scene: buyScene(SMALL, SMALL.price, { saved: keep > 0 && goal ? keep : 0 }),
+      return { money: s, savingsAdd: keep > 0 && goal ? keep : 0, bought: SMALL, scene: buyScene(SMALL, SMALL.price, { saved: keep > 0 && goal ? keep : 0, wallet: s.wallet }),
         note: `They chose a smaller treat: a cookie for ${fmt(SMALL.price)}${keep > 0 && goal ? `, and ${fmt(keep)} went in the piggy bank for ${the(goal)}` : ""}. Say that was a clever middle way; short.` };
     }
     if (n === 2 || (!w.can && n === 3)) {
@@ -311,7 +311,7 @@ export function applyPick(money, savings, n, now = Date.now()) {
     if ((n === 1 || n === 3) && s.wallet >= amt) {
       s.wallet = Math.round((s.wallet - amt) * 100) / 100; logIt(s, "lend", amt, `lent to ${Name(p.who)}`, now);
       s.loan = { who: p.who, amount: amt, back: amt + 1, at: now, turns: 0 };
-      return { money: s, savingsAdd: 0, scene: lendScene(p.who, amt), note: `They lent ${Name(p.who)} ${fmt(amt)}; ${p.who === "mimi" ? "she" : "he"} promised to pay back ${fmt(amt + 1)} (a dollar extra for waiting, like a bank's interest). Say it's kind and that you'll see if ${p.who === "mimi" ? "she" : "he"} keeps the promise; short.` };
+      return { money: s, savingsAdd: 0, scene: lendScene(p.who, amt, s.wallet), note: `They lent ${Name(p.who)} ${fmt(amt)}; ${p.who === "mimi" ? "she" : "he"} promised to pay back ${fmt(amt + 1)} (a dollar extra for waiting, like a bank's interest). Say it's kind and that you'll see if ${p.who === "mimi" ? "she" : "he"} keeps the promise; short.` };
     }
     if (n === 1 || n === 3) return { money: s, savingsAdd: 0, scene: null, note: `They wanted to lend ${fmt(amt)} but the wallet only has ${fmt(s.wallet)}. Say so kindly: you can't lend money you don't have; short.` };
     return { money: s, savingsAdd: 0, scene: { title: "a kind no", beats: [{ do: "friend_say", who: p.who, line: p.who === "cocoa" ? "No worries, bro! I'll save up for it myself." : "That's okay! I'll save up ♡" }, { do: "feel", who: p.who, how: "happy" }] },
@@ -319,9 +319,14 @@ export function applyPick(money, savings, n, now = Date.now()) {
   }
   return { money: s, savingsAdd: 0, scene: null, note: "" };
 }
-function buyScene(treat, price, { saved = 0 } = {}) {
-  const beats = [{ do: "give", who: "mimi", with: treat.prop || undefined }, { do: "friend_say", who: "mimi", line: `Here you go! That's ${fmt(price)}. Thank you for shopping! ♡` }];
+// ---- every transaction is a little moment on stage (Nov 8, Binoy: "more engaging … actions for how we want this money
+// part to move and show transactions"): a "pay" beat floats the amount (+$3, −$2, ♡ $1), jingles or cha-chings, and
+// drops coins or hearts; a receipt or an IOU is held up after; Mochi Bank opens its door. The page plays them (moneyfx.js).
+const pay = (kind, amount, more = {}) => ({ do: "pay", who: "mochi", kind, amount: r2(amount), ...more });
+function buyScene(treat, price, { saved = 0, wallet = null } = {}) {
+  const beats = [{ do: "give", who: "mimi", with: treat.prop || undefined }, pay("spend", price, { wallet, to: "mimi" }), { do: "friend_say", who: "mimi", line: `Here you go! That's ${fmt(price)}. Thank you for shopping! ♡` }];
   if (treat.food && treat.prop) beats.push({ do: "eat", who: "mochi", with: treat.prop });
+  if (treat.food && wallet != null) beats.push({ do: "show", who: "mochi", with: "receipt", ms: 9000, line: `My receipt: ${treat.name}, ${fmt(price)}. ${wallet > 0 ? `${fmt(wallet)} left in my wallet.` : "My wallet's empty now."}` });
   if (saved) beats.push({ do: "aside", who: "mochi", line: `And ${fmt(saved)} went in the piggy bank. Best of both!` });
   beats.push({ do: "feel", who: "mochi", how: "happy" });
   return { title: `bought: ${treat.name}`, beats };
@@ -329,8 +334,31 @@ function buyScene(treat, price, { saved = 0 } = {}) {
 function saveScene(amt, goal) {
   return { title: "saved it", beats: [{ do: "friend_say", who: "mimi", line: "Ooh, saving! That's so smart ♡" }, { do: "aside", who: "mochi", line: amt > 0 && goal ? `Clink! ${fmt(amt)} in the piggy bank for ${the(goal)}.` : "Let's pick a goal to save for!" }, { do: "feel", who: "mochi", how: "proud" }] };
 }
-function lendScene(who, amt) {
-  return { title: `lent ${Name(who)} ${fmt(amt)}`, beats: [{ do: "friend_say", who, line: who === "cocoa" ? `Thanks, bro! I'll pay you back ${fmt(amt + 1)}, promise!` : `Thank you! I'll pay you back ${fmt(amt + 1)} ♡` }, { do: "hug", who }] };
+function lendScene(who, amt, wallet = null) {
+  return { title: `lent ${Name(who)} ${fmt(amt)}`, beats: [pay("lend", amt, { wallet, to: who }), { do: "friend_say", who, line: who === "cocoa" ? `Thanks, bro! I'll pay you back ${fmt(amt + 1)}, promise!` : `Thank you! I'll pay you back ${fmt(amt + 1)} ♡` },
+    { do: "show", who: "mochi", with: "receipt", ms: 9000, line: `An IOU: "${Name(who)} owes Mochi ${fmt(amt + 1)}." I'll keep it safe till ${who === "mimi" ? "she" : "he"} pays me back.` }, { do: "hug", who }] };
+}
+/** money into Mochi Bank: its door opens, the money goes in, the star on the roof starts spinning */
+export function depositScene(amt, balance, wallet = null) {
+  return { title: "into Mochi Bank", beats: [{ do: "show", who: "mochi", with: "little bank", ms: 16000 }, { do: "use", who: "mochi" }, pay("deposit", amt, { wallet }),
+    { do: "aside", who: "mochi", line: `Clink! ${fmt(amt)} is safe in Mochi Bank: ${fmt(balance)} in there now.` },
+    { do: "aside", who: "mochi", line: `See the star spinning? Every week the bank adds ${Math.round(BANK_RATE * 100)}% more. That's interest!` }] };
+}
+/** money out of Mochi Bank: the door opens, it comes back to the wallet */
+export function withdrawScene(amt, balance, wallet) {
+  return { title: "out of Mochi Bank", beats: [{ do: "show", who: "mochi", with: "little bank", ms: 14000 }, { do: "use", who: "mochi" }, pay("withdraw", amt, { wallet }),
+    { do: "aside", who: "mochi", line: balance > 0 ? `${fmt(amt)} back in your wallet. ${fmt(balance)} is still growing in there.` : `${fmt(amt)} back in your wallet. Mochi Bank is empty now.` }] };
+}
+/** giving: the share jar fills, hearts instead of numbers */
+export function shareScene(amt, shared) {
+  return { title: "the share jar", beats: [{ do: "show", who: "mochi", with: "three money jars", ms: 14000 }, pay("share", amt),
+    { do: "aside", who: "mochi", line: `Clink! ${fmt(amt)} in the share jar, for the animal shelter.${shared > amt ? ` ${fmt(shared)} shared so far!` : ""}` },
+    { do: "friend_say", who: "mimi", line: "That's so kind! The puppies say thank you ♡" }, { do: "hug", who: "mimi" }] };
+}
+/** Mochi Bank paid its weekly interest: the money tree grows a coin */
+export function interestScene(gain, balance) {
+  return { title: "Mochi Bank paid interest", beats: [{ do: "show", who: "mochi", with: "growing money tree", ms: 12000 }, pay("interest", gain),
+    { do: "aside", who: "mochi", line: `Ding! Mochi Bank paid ${fmt(gain)} interest: ${fmt(balance)} in there now. My money tree grew a new coin!` }] };
 }
 export function loanAskScene(who, amount) {
   const thing = who === "cocoa" ? "a new kite string" : "a sparkly bow";
@@ -353,7 +381,8 @@ export function repay(money, now = Date.now()) {
   return { money: s, scene: { title: `${Name(L.who)} pays back`, beats: [
     { do: "arrive", who: L.who },
     { do: "friend_say", who: L.who, line: L.who === "cocoa" ? `Bro! Here's your ${fmt(L.amount)} back, plus ${fmt(L.back - L.amount)} for waiting. A promise is a promise!` : `Here's your ${fmt(L.amount)} back, and ${fmt(L.back - L.amount)} extra for waiting ♡` },
-    { do: "aside", who: "mochi", line: `${fmt(L.back)} back in your wallet! That extra dollar is called interest: it's why banks pay you for keeping money with them.` },
+    pay("repay", L.back, { wallet: s.wallet, from: L.who }),
+    { do: "aside", who: "mochi", line: `${fmt(L.back)} back in your wallet! That extra dollar is called interest: it's why banks pay you for keeping money with them. The IOU can go now: snip!` },
     { do: "hug", who: L.who },
   ] }, line: `${Name(L.who)} paid back ${fmt(L.back)}` };
 }

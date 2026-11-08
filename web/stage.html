@@ -503,6 +503,7 @@
 <script src="/zeroday.js"></script>
 <script src="/voice.js" defer></script>
 <script src="/party.js" defer></script>
+<script src="/moneyfx.js" defer></script>
 <script type="module">
   import "/kit/dist/mochi.min.js";
   import { isCrisis } from "/shared/safety.js";
@@ -1025,7 +1026,7 @@
   // tells the user how sweet mimi is"): Gemma writes it from the moment, and here it's acted out beat by beat, each one
   // waiting for the last (a friend's here before they speak, the gift is in his hoof before he eats it). A message from
   // you cuts it short: they stay, but the scene stops talking over you.
-  let skitRun = 0, skitOn = false;
+  let skitRun = 0, skitOn = false, autoUseAt = 0;   // (autoUseAt: the page used a prop itself, not a tap: Nov 8)
   async function playSkit(b) {
     const m = M(); if (!m || !PR() || (m.sulking && m.sulking()) || !Array.isArray(b.beats)) return;
     if (m.asleep && m.asleep()) { m.wake(); m.play("sleepy", 1400); }
@@ -1079,7 +1080,13 @@
           break;
         }
         case "eat": { if (PR().eat({ drink: /tea|cocoa|drink/.test(s.with || "") })) { await wait(600); bubble(`[${/tea|cocoa/.test(s.with || "") ? "sips" : "eats"} the ${s.with}]`, "sys"); await wait(2900); m.play("happy", 1500); await wait(400); } break; }
-        case "use": { if (PR().current()) PR().use(); await wait(2400); break; }
+        case "use": { if (PR().current()) { autoUseAt = Date.now(); PR().use(); } await wait(2400); break; }
+        case "pay": {   // money changing hands (Nov 8): the amount floats, a clink or a cha-ching, coins or hearts (moneyfx.js)
+          const said = window.MONEY_FX ? window.MONEY_FX.pay(s) : null;
+          if (said) bubble(`[${said}]`, "sys keep");
+          if (m.play) m.play({ spend: "happy", lend: "happy", share: "love", interest: "superexcited", repay: "excited", deposit: "proud", withdraw: "happy" }[s.kind] || "happy", 1400);
+          await wait(1700); break;
+        }
         case "feel": { if (w === "mochi") m.play(s.how || "happy", 1300); else m.friend(w, FEEL_ROLE[s.how] || "hello", 60000); if (s.line) { if (w === "mochi") sayM(s.line); else sayF(w, s.line); } await wait(1300 + (s.line ? readMs(s.line) : 0)); break; }
         case "hug": { if (s.line) sayF(w, s.line); if (m.hug) m.hug(w); await wait(3900); break; }
         case "dance": { if (w === "mochi") { m.play("excited", 2400); for (const f of ["mimi", "cocoa"]) if (here(f)) m.friend(f, "dance", 60000); } else m.friend(w, "dance", 60000); if (s.line) (w === "mochi" ? sayM : (l) => sayF(w, l))(s.line); await wait(3200); break; }
@@ -1403,6 +1410,9 @@
     if (sv.prop && PR()) showProp({ name: sv.prop.name, recipe: sv.prop }, sv.event === "done" ? 30000 : 20000);
     const coins = sv.event === "add" ? Math.min(6, Math.max(1, Math.round(sv.added || 1))) : sv.event === "done" ? 8 : 0;
     for (let i = 0; i < coins; i++) setTimeout(() => m && m.fx && m.fx("coin"), 500 + i * 160);
+    if (window.MONEY_FX && sv.added > 0) setTimeout(() => { window.MONEY_FX.float(`+${window.MONEY_FX.fmt(sv.added)} saved`, { tone: "gold", who: "prop" }); window.MONEY_FX.sound("clinks", coins); }, 500);   // (Nov 8: you see and hear it go in)
+    if (window.MONEY_FX && sv.event === "spend" && sv.added < 0) setTimeout(() => { window.MONEY_FX.float(`−${window.MONEY_FX.fmt(-sv.added)}`, { tone: "minus", who: "prop" }); window.MONEY_FX.sound("pop"); }, 500);
+    if (coins && sv.prop) setTimeout(() => { const P = PR(); if (P && P.current() && P.current().name === sv.prop.name) { autoUseAt = Date.now(); P.use(); } }, 700 + coins * 160);   // (the piggy bank hops: the coins are in)
     if (sv.event === "done") { setTimeout(() => m && m.play("superexcited", 3000), 900); setTimeout(() => m && m.party && m.party({ friends: ["mimi", "cocoa"], ms: 10000 }), 1600); }
     else if (sv.event === "add" || sv.event === "goal") setTimeout(() => m && m.play("happy", 1600), 400);
     if (sv.goal) bubble(`[piggy bank: ${fmt(sv.saved)}${sv.target ? ` of ${fmt(sv.target)}` : ""} for ${sv.goal}${sv.event === "done" ? " — goal reached!" : ""}]`, "sys");
@@ -1428,6 +1438,19 @@
     if (r && r.ok) { bubble(w.fight.starter === "cocoa" ? "[Cocoa sneaks up with his water gun: water fight!]" : "[a water fight with Cocoa: he pulls out his own water gun]", "sys"); cueBeatUntil = Math.max(cueBeatUntil, Date.now() + r.ms); }
   }
   window.__mochiWater = runWaterFight;   // tests
+  // tapping a money prop (Nov 8): the kit opens its door or drawer (or it hops), you hear how full it is, and he says
+  // the numbers (GET /api/money; no model). Not while a scene plays, and not when the page used it itself
+  let moneyTapAt = 0;
+  document.addEventListener("mochi:used", (e) => {
+    const d = e.detail || {}, fx = window.MONEY_FX;
+    if (!fx || skitOn || Date.now() - autoUseAt < 900 || Date.now() - moneyTapAt < 1500 || !fx.tapLine(d.name, {})) return;
+    moneyTapAt = Date.now();
+    fetch("/api/money").then((r) => (r.ok ? r.json() : null)).then((c) => {
+      if (!c) return;
+      const line = fx.tapLine(d.name, c), m = M(); fx.tapSound(d.name, c);
+      if (line && m) setTimeout(() => { m.say(line); bubble(line, "mochi"); }, 350);
+    }).catch(() => { /* offline */ });
+  });
   document.addEventListener("mochi:waterfight", (e) => { const d = e.detail || {}; if (d.ambush) fetch("/api/waterfight", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ambush: d.ambush }) }).catch(() => {}); });
   document.addEventListener("mochi:boom", (e) => {   // a big one: the page flashes and jolts
     const d = e.detail || {}, f = $("flash"); if (!f || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -1645,9 +1668,14 @@
     if (r.stance) setTimeout(() => stanceDo(r.stance), 250);
     const afterDl = (fn) => (Date.now() - dlAt < 12000 ? dlDone.then(() => setTimeout(fn, 250)) : setTimeout(fn, 250));   // (a skill pack downloading: the piggy bank and coins come after it, Nov 8)
     if (r.savings) afterDl(() => runSavings(r.savings));
-    if (r.moneyProp && r.moneyProp.recipe && PR()) afterDl(() => showProp(r.moneyProp, 14000));   // (his wallet, the little bank, the jars…: Nov 8)   // the piggy bank: a goal, a coin in, the goal reached
+    if (r.moneyProp && r.moneyProp.recipe && PR()) afterDl(() => {
+      showProp(r.moneyProp, 14000);
+      const empty = r.moneyProp.name === "wallet" && !r.moneyProp.recipe.parts.some((p) => p.label === "play money peeking out");
+      if (empty && window.MONEY_FX) setTimeout(() => { const m0 = M(); if (m0 && m0.fx) { m0.fx("huff"); m0.fx("huff"); } window.MONEY_FX.float("$0", { tone: "minus", who: "prop", small: true }); window.MONEY_FX.sound("pop"); if (m0 && m0.play) m0.play("sad", 1200); }, 1100);   // (an empty wallet: a little puff of dust, Nov 8)
+    });   // (his wallet, the little bank, the jars…: Nov 8)   // the piggy bank: a goal, a coin in, the goal reached
     if (r.money && r.money.earned) afterDl(() => {   // Money World: play money earned (a job, a chore, the allowance): coins jingle in
-      const m0 = M(); for (let i = 0; i < Math.min(5, Math.max(1, Math.round(r.money.earned))); i++) setTimeout(() => m0 && m0.fx && m0.fx("coin"), 150 + i * 170);
+      if (window.MONEY_FX) window.MONEY_FX.pay({ kind: "earn", amount: r.money.earned, wallet: r.money.wallet });   // (+$3 floats up, coins jingle in: Nov 8)
+      else { const m0 = M(); for (let i = 0; i < Math.min(5, Math.max(1, Math.round(r.money.earned))); i++) setTimeout(() => m0 && m0.fx && m0.fx("coin"), 150 + i * 170); }
       bubble(`[+$${r.money.earned} in your wallet · $${r.money.wallet} now]`, "sys keep");
     });
     if (r.cold && M() && M().cold) setTimeout(() => (r.cold.on ? M().cold(true, r.cold.until) : M().cold(false)), 300);   // "you caught a cold" / soup, tea, a nap

@@ -45,7 +45,8 @@ import { scamCheckAsk, checkMessage, checkNote, WAITING_NOTE, fallbackLine, eval
 import { SCAM_SET, HELD_OUT } from "./scamset.js";
 import { genJobs, genPrompt, genRows, dedupe, GEN_SCHEMA, trainBayes, split } from "./scamgen.js";
 import { revealVerdict, unsureLine } from "./verdict.js";
-import { moneyState, moneyIntent, moneyCard, moneyNote, whatIf, whatIfScene, applyPick, loanAskScene, loanDue, repay, mimiAskScene, mimiLearned, earn, earnNote, forecast, logIt, fmt as moneyFmt, the as theGoal, TEACH_NOTE as MONEY_TEACH, EARN_NOTE as MONEY_EARN, RULES as MONEY_RULES, MONEY_SKILL, skillDownload, SKILL_NOTE as MONEY_SKILL_NOTE, MONEY_SKILL_ASK, pickSkit, skitScene, skitAnswer, skitReveal, accrue, growth, BANK_RATE, setExtraSkits, extraSkits } from "./money.js";
+import { moneyState, moneyIntent, moneyCard, moneyNote, whatIf, whatIfScene, applyPick, loanAskScene, loanDue, repay, mimiAskScene, mimiLearned, earn, earnNote, forecast, logIt, fmt as moneyFmt, the as theGoal, TEACH_NOTE as MONEY_TEACH, EARN_NOTE as MONEY_EARN, RULES as MONEY_RULES, MONEY_SKILL, skillDownload, SKILL_NOTE as MONEY_SKILL_NOTE, MONEY_SKILL_ASK, pickSkit, skitScene, skitAnswer, skitReveal, accrue, growth, BANK_RATE, setExtraSkits, extraSkits, depositScene, withdrawScene, shareScene, interestScene } from "./money.js";
+import { moneyLook, lookState } from "../shared/money-look.js";
 import { propActIntent, propActNote } from "../shared/propact.js";
 import { normColor } from "../shared/craft.js";
 import { makeRenderer } from "./renderer.js";
@@ -349,7 +350,7 @@ export async function createServer(opts = {}) {
     res.json({ ...r, markdown: md, filed });
   });
   // Money World (Nov 8): the money card as it is now (the page's menu and the workshop page read it)
-  app.get("/api/money", (_, res) => res.json(moneyCard(memory.get("money", null), memory.get("savings", null))));
+  app.get("/api/money", (_, res) => res.json({ ...moneyCard(memory.get("money", null), memory.get("savings", null)), look: lookState(memory.get("money", null), memory.get("savings", null)) }));   // (look: what the money props show, for the taps: Nov 8)
   app.post("/api/demo-snapshot", (_, res) => {   // this moment, as the demo (the old one is kept beside it as .bak)
     try {
       if (fs.existsSync(demoSnap)) fs.renameSync(demoSnap, demoSnap.replace(/\.sqlite$/, `.${Date.now()}.bak.sqlite`));
@@ -503,7 +504,9 @@ export async function createServer(opts = {}) {
 
   // ---- Mochi's Money World (money.js): one turn about money. The scene is hand-written from the real numbers and
   // played after his reply; a scene that asks (what if, a loan, Mimi's question) waits for the pick (the next message).
-  const PIGGY = () => POCKET.find((e) => e.name === "piggy bank") || null;
+  // the money props show what's inside (shared/money-look.js, Nov 8): dressed with the numbers as they are now
+  const dressMoney = (rec) => (rec ? moneyLook(rec, lookState(memory.get("money", null), memory.get("savings", null))) : rec);
+  const PIGGY = () => dressMoney(POCKET.find((e) => e.name === "piggy bank") || null);
   function piggyAdd(amt) {   // money moved into the piggy bank (the savings goal from Nov 3): the page drops the coins
     const cur = memory.get("savings", null);
     if (!cur || !cur.goal || !(amt > 0)) return null;
@@ -516,7 +519,11 @@ export async function createServer(opts = {}) {
     if (!sk || !sk.beats || !sk.beats.length) return 0;
     const ms = skitMs(sk);
     actBusyUntil = Math.max(actBusyUntil, Date.now() + afterMs + ms + 1500);   // (his own story waits for it)
-    setTimeout(() => { if (seq !== chatSeq) return console.log(`[money] "${sk.title}": they've moved on, dropped`); broadcast({ type: "skit", title: sk.title, beats: sk.beats, things: skitThings(sk), need: "money", waits: sk.waits || null }); }, afterMs);
+    const things = Object.fromEntries(Object.entries(skitThings(sk)).map(([k, v]) => [k, k.startsWith("job:") ? v : dressMoney(v)]));   // (dressed now: the money has already moved)
+    setTimeout(() => {
+      if (seq !== chatSeq) return console.log(`[money] "${sk.title}": they've moved on, dropped`);
+      broadcast({ type: "skit", title: sk.title, beats: sk.beats, things, need: "money", waits: sk.waits || null });
+    }, afterMs);
     return ms;
   }
   const join = (a, b) => (a && b ? { ...a, title: a.title, beats: [...a.beats, ...b.beats], waits: b.waits || a.waits || null } : a || b);
@@ -536,7 +543,8 @@ export async function createServer(opts = {}) {
     // day zero: he knows nothing about money; the first money talk, he downloads his money skill pack first (Nov 8)
     const download = !hasSkill(MONEY_SKILL.id) && learnSkill(MONEY_SKILL.id, MONEY_SKILL.name) ? skillDownload() : null;
     if (download) broadcast({ type: "skill", download });
-    if (accrue(m)) save();   // (Mochi Bank's weekly interest, if a week has gone by)
+    const gain = accrue(m); if (gain) save();   // (Mochi Bank's weekly interest, if a week has gone by: the money tree grows a coin)
+    const interest = gain ? interestScene(gain, m.bank.balance) : null;
     let show = null, growthCard = null;   // a money prop in his hoof (or beside him) for this turn; the growth chart
     const pocket = (n) => { const e = POCKET.find((x) => x.name === n); return e ? { name: e.name, archetype: e.archetype, recipe: e } : null; };
     const save = () => memory.set("money", m);
@@ -556,11 +564,11 @@ export async function createServer(opts = {}) {
       if (want.kind === "deposit") {
         const amt = want.all ? m.wallet : want.amount;
         if (!amt) { note = `\nThey want to put money in Mochi Bank (your little bank: money kept there earns ${Math.round(BANK_RATE * 100)}% a week, a play rate). Ask how much from their wallet (${moneyFmt(m.wallet)}), short.`; fallback = `How much should we put in Mochi Bank? You have ${moneyFmt(m.wallet)}.`; mood = "curious"; }
-        else if (m.wallet < amt) { note = `\nThey want to put ${moneyFmt(amt)} in Mochi Bank, but their wallet has ${moneyFmt(m.wallet)}. Say so kindly; offer a job to earn more, short.`; fallback = `You have ${moneyFmt(m.wallet)} in your wallet. Want to do a job to earn more?`; mood = "thinking"; }
+        else if (m.wallet < amt) { note = `\nThey want to put ${moneyFmt(amt)} in Mochi Bank, but their wallet has ${moneyFmt(m.wallet)}. Say so kindly; offer a job to earn more, short.`; fallback = `You have ${moneyFmt(m.wallet)} in your wallet. Want to do a job to earn more?`; mood = "thinking"; show = pocket("wallet"); }
         else {
           m.wallet = Math.round((m.wallet - amt) * 100) / 100; if (!(bank.balance > 0)) bank.paidAt = Date.now();
           bank.balance = Math.round((bank.balance + amt) * 100) / 100; m.bank = bank; logIt(m, "save", amt, "into Mochi Bank"); save();
-          scene = { title: "into Mochi Bank", beats: [{ do: "aside", who: "mochi", line: `Clink! ${moneyFmt(amt)} is safe in Mochi Bank: ${moneyFmt(bank.balance)} in there now.` }, { do: "aside", who: "mochi", line: `Every week the bank adds ${Math.round(BANK_RATE * 100)}% more. That's interest!` }] };
+          scene = depositScene(amt, bank.balance, m.wallet);   // (the bank comes out at once; the scene opens its door)
           note = `\nOn screen just now: ${moneyFmt(amt)} went from their wallet into Mochi Bank (${moneyFmt(bank.balance)} there now; it earns ${Math.round(BANK_RATE * 100)}% a week, a play rate). Cheer, short; the scene says the numbers.`; fallback = "Clink! Safe in Mochi Bank!";
           try { memory.scrap(`you put ${moneyFmt(amt)} in Mochi Bank`, "story"); } catch (_) { /* fine */ }
         }
@@ -568,15 +576,16 @@ export async function createServer(opts = {}) {
         const amt = want.all || !want.amount ? bank.balance : Math.min(want.amount, bank.balance);
         if (!(bank.balance > 0)) { note = "\nThey want to take money out of Mochi Bank, but there's nothing in it yet. Say so kindly, short."; fallback = "There's nothing in Mochi Bank yet!"; mood = "thinking"; }
         else { bank.balance = Math.round((bank.balance - amt) * 100) / 100; m.bank = bank; m.wallet = Math.round((m.wallet + amt) * 100) / 100; logIt(m, "withdraw", amt, "out of Mochi Bank"); save();
+          scene = withdrawScene(amt, bank.balance, m.wallet);
           note = `\nOn screen just now: they took ${moneyFmt(amt)} out of Mochi Bank into their wallet (${moneyFmt(m.wallet)} in the wallet, ${moneyFmt(bank.balance)} left in the bank). Say it's theirs to use, and that money left in the bank keeps growing; short, no nagging.`; fallback = `${moneyFmt(amt)} back in your wallet!`; }
       }
       card = moneyCard(m, sv());
     } else if (want.kind === "share") {   // giving: the share jar (Nov 8)
       const amt = want.amount; show = pocket("three money jars");
-      if (m.wallet < amt) { note = `\nThey want to give ${moneyFmt(amt)} to help others, but their wallet has ${moneyFmt(m.wallet)}. Say it's a lovely idea, and kindly that they need to earn a little first; short.`; fallback = "That's so kind! Let's earn a little first."; mood = "love"; }
+      if (m.wallet < amt) { note = `\nThey want to give ${moneyFmt(amt)} to help others, but their wallet has ${moneyFmt(m.wallet)}. Say it's a lovely idea, and kindly that they need to earn a little first; short.`; fallback = "That's so kind! Let's earn a little first."; mood = "love"; show = pocket("wallet"); }
       else {
         m.wallet = Math.round((m.wallet - amt) * 100) / 100; m.shared = Math.round(((m.shared || 0) + amt) * 100) / 100; logIt(m, "share", amt, "given to help others"); save();
-        scene = { title: "the share jar", beats: [{ do: "aside", who: "mochi", line: `Clink! ${moneyFmt(amt)} in the share jar, for the animal shelter.` }, { do: "friend_say", who: "mimi", line: "That's so kind! The puppies say thank you ♡" }, { do: "hug", who: "mimi" }] };
+        scene = shareScene(amt, m.shared);
         note = `\nOn screen just now: they put ${moneyFmt(amt)} of their play money in the share jar, for the animal shelter (${moneyFmt(m.shared)} shared so far). Say it's kind, short; Mimi says thank you on screen.`; mood = "love"; fallback = "That's so kind!";
         try { memory.scrap(`you gave ${moneyFmt(amt)} to the animal shelter from the share jar`, "story"); } catch (_) { /* fine */ }
       }
@@ -585,10 +594,11 @@ export async function createServer(opts = {}) {
       note = `\nThey asked whether to buy ${want.item}, but you don't know what it costs. Ask how much it costs, short and curious (then they can ask "what if I buy ${want.item} for $…?"). No money advice yet.`;
       mood = "curious"; fallback = `Ooh, how much does it cost?`;
     } else if (want.kind === "whatif" && (want.all || !want.price) && !(m.wallet > 0)) {
-      note = "\nThey asked what if they spend their money, but their wallet is empty. Say so kindly and offer a job to earn some together, short."; mood = "thinking"; fallback = "Your wallet's empty right now! Want to do a job together?";
+      note = "\nThey asked what if they spend their money, but their wallet is empty. Say so kindly and offer a job to earn some together, short."; mood = "thinking"; fallback = "Your wallet's empty right now! Want to do a job together?"; show = pocket("wallet");
     } else if (want.kind === "whatif") {
       if (want.all || !want.price) want = { ...want, price: m.wallet };
       const w = whatIf(m, sv(), want);
+      if (!w.can) show = pocket("wallet");   // (not enough: out comes the wallet, a puff of dust if it's empty: Nov 8)
       m.pending = { kind: "whatif", w, at: Date.now() }; save();
       scene = whatIfScene(w, { rule: m.mimi && m.mimi.rule });
       note = `\nThey asked what would happen if they bought the ${w.treat.name} (${moneyFmt(w.price)}). In a moment, on screen, Mimi brings it to her stand and you show both ways with the real numbers: "${w.buyLine}" and "${w.saveLine}", then they choose. Right now say one short, excited line like "Let's find out!" Don't decide for them and don't say the numbers yet.`;
@@ -603,7 +613,7 @@ export async function createServer(opts = {}) {
     } else if (want.kind === "buy") {
       const w = whatIf(m, sv(), want);
       if (w.can) { m.pending = { kind: "whatif", w, at: Date.now() }; const r = applyPick(m, sv(), 1); m = r.money; save(); scene = r.scene; note = `\n${r.note}`; fallback = `Here's your ${w.treat.name}!`; }
-      else { note = `\nThey want to buy the ${w.treat.name} (${moneyFmt(w.price)}) but their wallet has ${moneyFmt(m.wallet)}. Say kindly that they need ${moneyFmt(w.price - m.wallet)} more, and offer a job to earn it together; short.`; mood = "thinking"; fallback = `We need ${moneyFmt(w.price - m.wallet)} more. Want to do a job together to earn it?`; }
+      else { note = `\nThey want to buy the ${w.treat.name} (${moneyFmt(w.price)}) but their wallet has ${moneyFmt(m.wallet)}. Say kindly that they need ${moneyFmt(w.price - m.wallet)} more, and offer a job to earn it together; short.`; mood = "thinking"; fallback = `We need ${moneyFmt(w.price - m.wallet)} more. Want to do a job together to earn it?`; show = pocket("wallet"); }
     } else if (want.kind === "allowance") {
       if (want.amount && /\b(?:a|per|each|every) week\b|\bweekly\b/i.test(text)) m.allowance = want.amount;
       const e = earn(m, "allowance", "allowance", Date.now(), want.amount); m = e.money; save(); earned = e;
@@ -612,12 +622,16 @@ export async function createServer(opts = {}) {
     } else if (want.kind === "save_all") {
       const cur = sv();
       if (!cur || !cur.goal) { note = "\nThey want to save their money but there's no savings goal yet: ask what they'd like to save up for, short."; fallback = "What should we save up for?"; }
-      else if (!(m.wallet > 0)) { note = "\nThey want to save their wallet money, but the wallet is empty. Say so kindly and offer a job to earn some, short."; fallback = "Your wallet's empty! Want to do a job together?"; }
+      else if (!(m.wallet > 0)) { note = "\nThey want to save their wallet money, but the wallet is empty. Say so kindly and offer a job to earn some, short."; fallback = "Your wallet's empty! Want to do a job together?"; show = pocket("wallet"); }
       else { const amt = m.wallet; m.wallet = 0; logIt(m, "save", amt, `saved for ${cur.goal}`); save(); savings = piggyAdd(amt); note = `\nOn screen just now: all ${moneyFmt(amt)} from their wallet went clink-clink into your piggy bank: ${moneyFmt(savings.saved)}${cur.target ? ` of ${moneyFmt(cur.target)}` : ""} for ${theGoal(cur.goal)}. Cheer, short.`; fallback = `Clink! ${moneyFmt(amt)} saved!`; }
     } else if (want.kind === "lend") {
       const amount = want.amount || (want.who === "cocoa" ? 5 : 4);
       m.pending = { kind: "loan", who: want.who, amount, at: Date.now() };
-      if (want.asked === "you" && want.amount) { const r = applyPick(m, sv(), 1); m = r.money; save(); scene = r.scene; note = `\n${r.note}`; fallback = "That's really kind!"; }
+      if (want.asked === "you" && want.amount) {
+        const r = applyPick(m, sv(), 1); m = r.money; save(); scene = r.scene; note = `\n${r.note}`;
+        fallback = r.scene ? "That's really kind!" : `We only have ${moneyFmt(m.wallet)}. We can't lend money we don't have!`;   // (Nov 8: not "that's kind" with an empty wallet)
+        if (!r.scene) { show = pocket("wallet"); mood = "thinking"; }
+      }
       else { save(); scene = loanAskScene(want.who, amount); note = `\nIn a moment, on screen, ${want.who === "cocoa" ? "Cocoa runs in and asks" : "Mimi comes by and asks"} to borrow ${moneyFmt(amount)} and promises to pay back ${moneyFmt(amount + 1)}; then they decide. Right now say one short line like "Ooh, who's that?"`; fallback = "Ooh, who's that?"; mood = "curious"; }
     } else if (want.kind === "skit") {   // a money skit (Nov 8): Mimi and Cocoa act it out, then he asks them
       const k = pickSkit((m.skits && m.skits.recent) || [], Math.random, want.topic, (m.skits && m.skits.genPlayed) || []);
@@ -659,9 +673,10 @@ export async function createServer(opts = {}) {
     }
     if (!show) show = want.kind === "card" && !savings ? pocket("wallet") : want.kind === "allowance" ? pocket("play money") : want.kind === "teach_money" ? pocket("little bank")
       : want.kind === "earn_how" ? pocket("calculator") : want.kind === "lend" && !scene ? pocket("wallet") : null;
+    if (interest) { scene = join(interest, scene); note += `\nAlso: Mochi Bank just paid its weekly interest, ${moneyFmt(gain)} (the scene shows it).`; }
     if (download) note = MONEY_SKILL_NOTE + note;
     else if (want.kind === "teach_money" && MONEY_SKILL_ASK.test(text)) note = "\nThey asked you to download or learn about money: you already downloaded your \"money smarts\" skill pack earlier, so say so happily, short." + note;
-    const first = { id, mood, strikes: state.strikes, savings: savings || undefined, money: earned ? { earned: earned.amount, wallet: earned.money.wallet } : undefined, moneyProp: show || undefined };
+    const first = { id, mood, strikes: state.strikes, savings: savings || undefined, money: earned ? { earned: earned.amount, wallet: earned.money.wallet } : undefined, moneyProp: show ? { ...show, recipe: dressMoney(show.recipe) } : undefined };
     broadcast({ type: "first", ...first });
     memory.turn("user", text, { feelings: f.model, rule, money: want.kind });
     let line = fallback, tagged = null, llm;
@@ -945,7 +960,7 @@ export async function createServer(opts = {}) {
     const first = { id, mood: toss || ride ? "excited" : cue && cue.how === "squirt" ? "laugh" : dismiss && f.mood === "showoff" ? "love" /* "let Mimi go" names her: no showing her off */ : f.mood, sulk: f.sulk, strikes: state.strikes, startSulk: f.startSulk, endSulk: f.endSulk, crisis: f.crisis, request: f.request, trigger: trigger && trigger.action, feelings: f.model, feelingsMs: f.ms,
       cue: cue && { id: cue.id, how: cue.how, friends: cue.friends || [], prop: cue.prop && { id: cue.prop.id || null, name: cue.prop.name, archetype: cue.prop.archetype, recipe: cue.prop.recipe } },
       money: earned ? { earned: earned.amount, wallet: earned.money.wallet } : undefined,
-      ride, handshake, pose, teach, hug, piggy, share, hint, dress, stance, point, talkTo, party, sneeze, dismiss, savings: savings && { ...savings, prop: POCKET.find((e) => e.name === "piggy bank") || null }, cold: coldEv ? { on: coldEv === "start", until: coldEv === "start" ? state.cold.until : 0 } : null,
+      ride, handshake, pose, teach, hug, piggy, share, hint, dress, stance, point, talkTo, party, sneeze, dismiss, savings: savings && { ...savings, prop: PIGGY() }, cold: coldEv ? { on: coldEv === "start", until: coldEv === "start" ? state.cold.until : 0 } : null,
       throw: toss && { steps: toss.steps, thing: toss.thing, fight: toss.fight, ball: tossBall, shield: POCKET.find((e) => e.name === SHIELD), plan: tossPlan.plan.map((p) => p.outcome) },
       water: water && { fight: water.fight, gun: water.gun.recipe, gunName: water.gun.name, cocoaGun: water.cocoaGun },
       propAct: pa && { verb: pa.verb, tool: pa.tool, target: pa.target, colour: pa.colour, colourName: pa.colourName, line: pa.line, hooves: paHooves },

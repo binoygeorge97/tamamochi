@@ -1,7 +1,7 @@
 /* Parts that move on anything he has (Nov 7, Binoy: "more moving parts"): found by their labels, like a ride's wheels
  * (rides.js), so a prop Gemma designs moves too if it names its parts. Spinners turn round their thinnest side, flags
  * wave from the edge nearer the pole, charms swing from their top, flames flicker, and a lid, door or hatch swings open
- * from its back edge when he's tapped, then closes. Parts named after one that moves ("flag star") go with it.
+ * from its back edge when he's tapped, then closes (a drawer slides out instead, Nov 8). Parts named after one that moves ("flag star") go with it.
  * Rides use only the waving and swinging here: their propellers, rotors and flames are rides.js's. */
 import * as THREE from "three";
 import { MOVE_SPIN, MOVE_WAVE, MOVE_SWING, MOVE_GLOW, MOVE_LID } from "../../shared/craft.js";
@@ -43,6 +43,8 @@ export class Movers {
         it.pivot = it.p0.clone().add(new THREE.Vector3(-side * w / 2, 0, 0).applyQuaternion(it.q0)); it.axis = Y.clone();
       } else if (kind === "swing") {   // from its top
         it.pivot = it.p0.clone().add(new THREE.Vector3(0, h / 2, 0).applyQuaternion(it.q0)); it.axis = Z.clone();
+      } else if (kind === "lid" && /\bdrawer\b/.test(o.userData.label)) {   // a drawer (Nov 8, the cash register): slides out of its front
+        it.slide = new THREE.Vector3(0, 0, d * 0.8).applyQuaternion(it.q0);
       } else if (kind === "lid") {   // a hinge along its back edge (a door: its side)
         const door = /door/.test(o.userData.label);
         it.pivot = it.p0.clone().add(new THREE.Vector3(door ? -w / 2 : 0, 0, door ? 0 : -d / 2).applyQuaternion(it.q0));
@@ -77,6 +79,7 @@ export class Movers {
       else if (it.kind === "wave") this.turn(it, (0.24 * Math.sin(t * 3.6 + it.ph) + 0.08 * Math.sin(t * 7.3 + it.ph)) * calm);
       else if (it.kind === "swing") this.turn(it, 0.32 * Math.sin(t * 2.4 + it.ph) * calm);
       else if (it.kind === "glow") { const k = 1 + (0.08 * Math.sin(t * 9 + it.ph) + 0.05 * Math.sin(t * 17.3 + it.ph * 2)) * calm; it.o.scale.set(it.s0.x * (2 - k) ** 0.5, it.s0.y * k, it.s0.z * (2 - k) ** 0.5); }
+      else if (it.kind === "lid" && it.slide) { for (const x of [it, ...it.members]) x.o.position.copy(x.p0).addScaledVector(it.slide, ease); }
       else if (it.kind === "lid") this.turn(it, it.max * ease);
     }
   }

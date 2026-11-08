@@ -12,7 +12,7 @@ export const MONEY_PROPS = {
       p("box", [0.56, 0.4, 0.09], [0, 0.22, 0], "#9a5b34", "cloth", { round: 0.3, label: "wallet" }),
       p("box", [0.5, 0.18, 0.02], [0, 0.31, 0.05], "#b8723f", "cloth", { round: 0.35, label: "flap" }),
       p("box", [0.44, 0.14, 0.03], [0.02, 0.44, -0.01], BILL, "paper", { round: 0.1, label: "play money peeking out" }),
-      p("box", [0.4, 0.12, 0.03], [-0.03, 0.46, -0.025], "#9bd69c", "paper", { round: 0.1 }),
+      p("box", [0.4, 0.12, 0.03], [-0.03, 0.46, -0.025], "#9bd69c", "paper", { round: 0.1, label: "second bill" }),
       p("coin", [0.09, 0.09, 0.03], [0, 0.26, 0.065], GOLD, "metal", { label: "snap button" }),
       p("box", [0.5, 0.015, 0.01], [0, 0.1, 0.048], "#e8c9a0", "cloth", { round: 0.4, label: "stitching" }),
     ],
@@ -111,23 +111,24 @@ export const MONEY_PROPS = {
       p("cylinder", [0.46, 0.56, 0.46], [0, 0.28, 0], "#cfeeff", "glass", { hollow: true, label: "glass jar" }),
       p("cylinder", [0.48, 0.08, 0.48], [0, 0.6, 0], "#3fae6a", "metal", { label: "lid" }),
       p("box", [0.1, 0.012, 0.025], [0, 0.645, 0], "#1f3a2a", "rubber", { round: 0.4, label: "coin slot" }),
-      p("disc", [0.38, 0.05, 0.38], [0, 0.05, 0], GOLD, "metal", { label: "pile inside" }),
-      p("disc", [0.3, 0.05, 0.3], [0.03, 0.1, 0], GOLD2, "metal"),
-      p("coin", [0.16, 0.16, 0.04], [-0.08, 0.2, 0.05], GOLD, "metal", { rotate: [0, 0, 25] }),
-      p("coin", [0.16, 0.16, 0.04], [0.09, 0.17, -0.04], GOLD, "metal", { rotate: [0, 0, -30] }),
+      // (Nov 8: drawn full; money-look.js shrinks the pile to what's really saved and sets the top coins on it)
+      p("cylinder", [0.38, 0.44, 0.38], [0, 0.24, 0], GOLD2, "metal", { label: "coin pile" }),
+      p("coin", [0.16, 0.16, 0.04], [-0.07, 0.49, 0.04], GOLD, "metal", { rotate: [0, 0, 25], label: "top coin" }),
+      p("coin", [0.16, 0.16, 0.04], [0.08, 0.49, -0.04], GOLD, "metal", { rotate: [0, 0, -30], label: "top coin 2" }),
       p("box", [0.36, 0.14, 0.02], [0, 0.34, 0.235], "#fff4cf", "paper", { round: 0.2, label: "label" }),
       p("star", [0.09, 0.09, 0.015], [0, 0.34, 0.25], "#3fae6a", "paper"),
+      p("star", [0.12, 0.12, 0.02], [0.16, 0.68, 0], "#fff3a0", "glow", { label: "sparkle" }),
     ],
   }, {
     name: "three money jars", archetype: "companion",
     parts: [
       p("box", [1.3, 0.05, 0.42], [0, 0.025, 0], "#c99a62", "wood", { round: 0.3, label: "tray" }),
       ...[["#ff8a3d", "heart"], ["#3fae6a", "star"], ["#5ec8ff", "coin"]].flatMap(([lid, mark], i) => {
-        const x = -0.42 + i * 0.42, h = [0.38, 0.5, 0.3][i];
+        const x = -0.42 + i * 0.42;
         return [
           p("cylinder", [0.32, 0.46, 0.32], [x, 0.28, 0], "#e6f6ff", "glass", { hollow: true, ...(i === 0 ? { label: "jar: spend" } : i === 1 ? { label: "jar: save" } : { label: "jar: share" }) }),
           p("cylinder", [0.34, 0.07, 0.34], [x, 0.54, 0], lid, "metal", { label: "lid" }),
-          p("cylinder", [0.26, h * 0.42, 0.26], [x, h * 0.21 + 0.07, 0], GOLD, "metal", { label: "money inside" }),
+          p("cylinder", [0.26, 0.4, 0.26], [x, 0.27, 0], GOLD, "metal", { label: ["spend money", "save money", "share money"][i] }),   // (drawn full: money-look.js)
           p(mark, [0.12, 0.12, 0.02], [x, 0.35, 0.165], lid, "paper", { label: "sign" }),
         ];
       }),
@@ -136,8 +137,9 @@ export const MONEY_PROPS = {
     name: "cash register", archetype: "companion",
     parts: [
       p("box", [0.8, 0.3, 0.6], [0, 0.15, 0], "#ff6f91", "plastic", { round: 0.12, label: "base" }),
-      p("box", [0.7, 0.1, 0.06], [0, 0.12, 0.31], "#ffd34d", "plastic", { round: 0.3, label: "money drawer" }),
-      p("coin", [0.06, 0.06, 0.02], [0, 0.12, 0.345], "#5a2a14", "plastic", { label: "drawer knob" }),
+      p("box", [0.7, 0.1, 0.34], [0, 0.12, 0.15], "#ffd34d", "plastic", { round: 0.2, label: "drawer" }),   // (slides out when tapped: moving.js)
+      p("coin", [0.06, 0.06, 0.02], [0, 0.12, 0.33], "#5a2a14", "plastic", { label: "drawer knob" }),
+      p("box", [0.5, 0.03, 0.2], [0, 0.185, 0.1], BILL, "paper", { round: 0.1, label: "drawer cash" }),
       p("wedge", [0.6, 0.22, 0.4], [0, 0.4, 0.06], "#ff8fb0", "plastic", { rotate: [0, 90, 0], label: "keyboard slope" }),
       ...[0, 1, 2].flatMap((c) => [0, 1].map((r) => p("box", [0.1, 0.03, 0.08], [-0.16 + c * 0.16, 0.36 + r * 0.06, 0.16 - r * 0.08], ["#ffffff", "#ffd34d", "#7cc47f"][c], "plastic", { round: 0.4, ...(c === 0 && r === 0 ? { label: "keys" } : {}) }))),
       p("cylinder", [0.06, 0.3, 0.06], [0, 0.44, -0.2], "#3a3550", "plastic", { label: "screen post" }),
@@ -155,9 +157,10 @@ export const MONEY_PROPS = {
       p("box", [0.9, 0.07, 0.5], [0, 0.69, 0], "#e8e3d6", "plastic", { round: 0.2, label: "ledge" }),
       p("wedge", [0.92, 0.28, 0.46], [0, 0.86, 0], "#5ec8ff", "plastic", { label: "roof" }),
       p("coin", [0.16, 0.16, 0.03], [0, 0.82, 0.235], GOLD, "metal", { label: "coin emblem" }),
-      p("star", [0.08, 0.08, 0.015], [0, 0.82, 0.255], "#ffd86b", "metal"),
-      p("box", [0.18, 0.3, 0.02], [0, 0.3, 0.165], "#8a5a33", "wood", { round: 0.3, label: "door" }),
-      p("coin", [0.03, 0.03, 0.01], [0.05, 0.3, 0.18], GOLD, "metal", { label: "door knob" }),
+      p("star", [0.12, 0.12, 0.02], [0, 0.82, 0.26], "#ffd86b", "metal", { label: "star spinner" }),   // (spins while money grows in there: money-look.js)
+      p("box", [0.16, 0.28, 0.02], [0, 0.3, 0.17], BILL, "paper", { round: 0.1, label: "money inside" }),
+      p("box", [0.18, 0.3, 0.02], [0, 0.3, 0.19], "#8a5a33", "wood", { round: 0.3, label: "door" }),
+      p("coin", [0.03, 0.03, 0.01], [0.05, 0.3, 0.205], GOLD, "metal", { label: "door knob" }),
     ],
   }, {
     name: "safe", archetype: "companion",
@@ -209,7 +212,7 @@ export const MONEY_PROPS = {
       p("disc", [0.34, 0.03, 0.34], [0, 0.29, 0], "#6b4a2a", "rubber", { label: "soil" }),
       p("cylinder", [0.08, 0.5, 0.08], [0, 0.52, 0], "#8a5a33", "wood", { label: "trunk" }),
       p("sphere", [0.62, 0.48, 0.5], [0, 0.88, 0], "#5bbf6a", "fluffy", { label: "leaves" }),
-      ...[[-0.2, 0.92, 0.22], [0.16, 1.02, 0.2], [0.04, 0.78, 0.25], [0.24, 0.82, 0.12], [-0.12, 1.07, 0.12]].map((at, i) => p("coin", [0.12, 0.12, 0.03], at, GOLD, "metal", { ...(i === 0 ? { label: "coins growing" } : {}) })),
+      ...[[-0.2, 0.92, 0.22], [0.16, 1.02, 0.2], [0.04, 0.78, 0.25], [0.24, 0.82, 0.12], [-0.12, 1.07, 0.12]].map((at) => p("coin", [0.12, 0.12, 0.03], at, GOLD, "metal", { label: "money coin" })),   // (one more for each interest payment: money-look.js)
       p("star", [0.07, 0.07, 0.02], [0.3, 1.1, 0.15], "#ffffff", "glow", { label: "sparkle" }),
     ],
   }],
