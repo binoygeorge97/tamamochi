@@ -38,7 +38,7 @@ Things to try:
 | Part | What runs it | Where |
 | --- | --- | --- |
 | Stage | three.js in the browser, works on a phone | the browser |
-| Brain (his chat) | Gemma 4 26B in LM Studio | our computer (Bosgame M5) |
+| Brain (his chat) | Gemma 4 26B in LM Studio | my own computer, running locally |
 | Feelings | fine-tuned RoBERTa, ONNX | our computer |
 | Voice | Kokoro text-to-speech on the CPU | our computer |
 | Memory | SQLite | our computer |
