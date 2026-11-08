@@ -668,6 +668,7 @@
       }
       if (m.type === "story") paintStory(m);
       if (m.type === "scamcheck" && m.phase === "start") detective(m);   // Detective Mochi while the scam check runs (Nov 7)
+      if (m.type === "skill" && m.download) playDownload(m.download);   // "download the scam knowledge" (Nov 8)
     };
   }
   connect();
@@ -1368,6 +1369,12 @@
     for (const a of actions) {
       if (a.kind === "mood" && a.prop) { useProp({ ...a.prop, use: "show" }, delay); setTimeout(() => m.play(a.name === "showoff" ? "proud" : a.name, 2000), delay + 300); }
       else if (a.kind === "mood") setTimeout(() => m.play(a.name, 2000), delay);
+      else if (a.kind === "kit") setTimeout(() => {   // his own bed, phone, glasses, clipboard (Nov 8: "I have my bed right here!" and no bed)
+        const k = M(); if (!k) return;
+        if (a.name === "bed" && k.bed) { k.bed(); bubble("[snuggles into his little bed]", "sys"); }
+        else if (a.name === "phone") { k.play("typing", 3600); bubble("[takes out his little phone]", "sys"); }
+        else if (a.name === "glasses" || a.name === "clipboard") { k.play("working", 3600); bubble(a.name === "glasses" ? "[puts on his reading glasses]" : "[takes out his clipboard]", "sys"); }
+      }, delay + 1200);   // (after his reaction, so it stays out)
       else if (a.kind === "move") setTimeout(() => {
         if (a.recipe && window.__mochiMoves) window.__mochiMoves.play(a.recipe, { skill: a.skill, prop: a.prop, id: a.id, name: a.name });
         else m.play("excited", 2200);

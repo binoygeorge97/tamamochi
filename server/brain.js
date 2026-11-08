@@ -104,10 +104,18 @@ export const TOOLS = [
 const TOOL_NAMES = TOOLS.map((t) => t.function.name);
 /** the thing a request_prop / request_move call is for, whichever key it came under (never "undefined") */
 export function nameArg(args = {}) {
-  for (const k of ["name", "item", "thing", "prop", "object", "move", "request", "what", "title", "value", "arg", "description"]) {
-    const v = args && args[k];
-    if (typeof v === "string" && v.trim() && !/^(?:undefined|null|none|n\/a)$/i.test(v.trim())) return v.trim().slice(0, 80);
-  }
+  const ok = (v) => typeof v === "string" && v.trim() && !/^(?:undefined|null|none|n\/a)$/i.test(v.trim());
+  for (const k of ["name", "item", "thing", "prop", "object", "move", "request", "what", "title", "value", "arg"]) if (ok(args && args[k])) return args[k].trim().slice(0, 80);
+  // (M5, Nov 8: request_prop({"prop_name": "cozy little bed", "name": ""}) said "let me make one!" and made nothing):
+  // any other key that names it (prop_name, item_name, object_name, move_name), then the description
+  for (const [k, v] of Object.entries(args || {})) if (/name|item|prop|thing|object/i.test(k) && ok(v)) return v.trim().slice(0, 80);
+  return ok(args && args.description) ? args.description.trim().slice(0, 80) : "";
+}
+// the prop a show / use / fix / teach call means, whatever key it came under
+export function propArg(args = {}) {
+  const ok = (v) => typeof v === "string" && v.trim() && !/^(?:undefined|null|none|n\/a)$/i.test(v.trim());
+  for (const k of ["prop", "prop_name", "name", "item", "thing", "object"]) if (ok(args && args[k])) return args[k].trim().slice(0, 80);
+  for (const [k, v] of Object.entries(args || {})) if (/name|item|prop|thing|object/i.test(k) && ok(v)) return v.trim().slice(0, 80);
   return "";
 }
 // each tool's main argument, for a call written with just a value: request_prop(sword) (M5, Nov 4: it was left in his
@@ -119,10 +127,10 @@ TOOL_NAMES.push("want", "drop_want");   // his own story (story.js), when a stor
 const BUILTIN_PROPS = [
   [/\b(santa|christmas|xmas|x-mas|holiday|festive)\b[^.]*\b(hat|cap|outfit|costume|look)\b|\b(hat|cap)\b[^.]*\b(santa|christmas|xmas|x-mas)\b|^\s*santa\s*$/, { costume: "christmas", label: "your Santa hat (one of your costumes)" }],
   [/\b(bunny|rabbit|easter)\b[^.]*\b(ears?|outfit|costume|look)\b|\bbunny\s+ears\b/, { costume: "easter", label: "your bunny ears (one of your costumes)" }],
-  [/\b(phone|smartphone)\b/, { label: "your little phone" }],
-  [/\b(glasses|spectacles|specs)\b/, { label: "your reading glasses" }],
-  [/\b(clipboard|notepad)\b/, { label: "your clipboard" }],
-  [/\b(bed|nightcap|night\s+cap|quilt)\b/, { label: "your little bed and nightcap" }],
+  [/\b(phone|smartphone)\b/, { label: "your little phone", kit: "phone", out: "your phone is out; you're tapping on it" }],
+  [/\b(glasses|spectacles|specs)\b/, { label: "your reading glasses", kit: "glasses", out: "your reading glasses are on" }],
+  [/\b(clipboard|notepad)\b/, { label: "your clipboard", kit: "clipboard", out: "your clipboard is out" }],
+  [/\b(bed|nightcap|night\s+cap|quilt)\b/, { label: "your little bed and nightcap", kit: "bed", out: "your little bed is out and you're snuggled up in it" }],
 ];
 export function builtinProp(text) {
   const t = String(text || "").toLowerCase();
@@ -191,11 +199,22 @@ const bigOwned = (props) => props.find((p) => p.archetype === "launcher" && p.re
 // How well a name fits the words: a word that says which one ("water", "globe") counts 2, a word any launcher has
 // ("gun", "rocket", "launcher") counts 1. { item, score } for the best, or null.
 const GENERIC_WORD = /^(launchers?|bazookas?|blasters?|cannons?|poppers?|guns?|pistols?|squirters?|shooters?|rockets?|toy|thing)$/;
+// Words that name a pocket thing but mostly mean something else: "can you…" is not the watering can (M5, Nov 8: "can
+// you bring out your car" and "can you take out your bazooka" each held up the watering can, and "can you make the
+// bed" too), and Cocoa is his friend before he's a cup of cocoa. These count only after a word that points at a thing
+// ("a can", "the cocoa", "your ring") or another word of its own name ("watering can", "hot cocoa").
+const AMBIG = new Set(["can", "cocoa", "present", "sign", "ring", "block", "duck", "bank", "glass", "pot", "train", "light", "star"]);
+const POINT = "a|an|the|your|my|his|her|our|their|that|this|some|its|another|one";
+function wordHit(x, w, name) {
+  if (!AMBIG.has(x)) return new RegExp(`\\b${x}s?\\b`).test(w);
+  const own = String(name).toLowerCase().split(/[^a-z]+/).filter((y) => y && y !== x);
+  return new RegExp(`\\b(?:${[POINT, ...own].join("|")})\\s+(?:[a-z]+\\s+)?${x}s?\\b(?!\\s+(?:you|i|we|he|she|they|u|it)\\b)`).test(w);
+}
 function bestByWords(list, w) {
   let best = null;
   for (const item of list) {
     let score = 0, specific = 0;
-    for (const x of propWords(item.name)) if (new RegExp(`\\b${x}s?\\b`).test(w)) { if (GENERIC_WORD.test(x)) score += 1; else { score += 2; specific++; } }
+    for (const x of propWords(item.name)) if (wordHit(x, w, item.name)) { if (GENERIC_WORD.test(x)) score += 1; else { score += 2; specific++; } }
     if (score && (!best || specific > best.specific || (specific === best.specific && score > best.score))) best = { item, score, specific };
   }
   return best;
@@ -231,7 +250,16 @@ const FIRE_ASK = /\b(fire|shoot|launch|blast|spray|squirt)\b/;
 const USE_SHORT = /^\s*(go|go go|do it|again|now|boom|fire away|let'?s go|ready,? (set,? )?go)\s*[!.]*\s*$/;
 const SHOW_SAY = /\b(here it is|here you go|here's my|check (it|this) out|ta-?da|look at (it|this|my)|got it right here|right here)\b/;
 const USE_SAY = /\b(boom|kaboom|pew|firing|blast(ing)? off|whoosh|bang|confetti everywhere|bombs away|here goes|fire in the hole)\b/;
-const HAVE_ASK = /\b(do you (still )?have|you got|have you got|got (the|your|a|an))\b/;   // "you got the launcher?": yes, and here it is
+const HAVE_ASK = /\b(do you (still )?have|you got|have you got|got (the|your|a|an))\b/;
+// a tool that didn't do anything (its result says so)
+const TOOL_FAILED = /^(you don't have|say what|say which|there's nothing out|that didn't work|you don't know)/;
+// words that say something was done or is out right now
+const CLAIM_SAY = /\b(here it is|here you go|here's (my|your|the)|found it|ta-?da|let me make|i'?ll make|i'?ll build|i'?ll get|making (it|one)|coming right up|right here|check (it|this) out|look at (it|this|my)|got it|pulls? out|takes? out|holds? up|i made|all done|it'?s ready|finished)\b/i;
+// words that say he hasn't got one and will make it
+const MAKE_SAY = /\b(don'?t have (one|it|any|that)|let me make|i'?ll make|i'?ll build|make (you )?one|put (it|one) on (the|my) workbench)\b/i;
+// asking for one of his own built-in things, or him saying it's out
+const KIT_ASK = /\b(give|make|bring|get|want|need|have|show|see|where|use|wear|put on|take out|got|grab|fetch|lend)\b/;
+const KIT_SAY = /\b(right here|here it is|here's my|check (it|this) out|snuggle|hop in|climb in|tuck|got (it|one)|already have)\b/;   // "you got the launcher?": yes, and here it is
 const NOT = /\b(don'?t|do not|stop|no more|never)\b/;
 // rides: "ride your bike", "can you ride a tricycle?", "let's go skateboarding" → which one (his own if he made one)
 const RIDE_VERB = /\b(fly(?:ing)? (?:the|your|it|her|him|around|away|up|to|off|high|across|over)|let'?s fly|go flying|wanna fly|want to fly|blast ?off|lift ?off|take ?off|go to space|to the moon|into space|sail(?:ing)? (?:the|your|it|around|away|to|off|across)|let'?s sail|go sailing|set sail|ride|riding|go for a ride|take (?:it|her|him|them) for a spin|cycle|cycling|pedal|skate|skating|skateboarding|bike ride|do a lap|lap|drive|driving|zoom|roll around|go around|cruise|spin around|get in(?:to)?|hop in(?:to)?|jump in(?:to)?|go for a drive|road trip|pick (?:up (?:mimi|cocoa)|(?:mimi|cocoa) up)|give (?:mimi|cocoa) a (?:ride|lift)|take (?:mimi|cocoa) (?:for a (?:ride|drive|spin)|out|around))\b/;
@@ -809,7 +837,10 @@ export function makeBrain({ memory, fetchImpl = fetch, log = console, story = nu
         const built = builtinProp(`${args.name || ""} ${args.description || ""}`);
         if (built) {   // never queue what the kit already draws ("do you have a xmas hat?" queued one on the M5, Nov 1)
           if (built.costume) effects.actions.push({ kind: "costume", name: built.costume });
-          return `you already have ${built.label}${built.costume ? "; you're wearing it now" : ""}. Don't make a new one`;
+          // ...and bring it out: "can you give me a bed" → "I already have my little bed right here!" with no bed on
+          // screen, twice (M5, Nov 8). His bed, phone, glasses and clipboard are part of him: he shows them.
+          if (built.kit && !effects.actions.some((a) => a.kind === "kit")) effects.actions.push({ kind: "kit", name: built.kit });
+          return `you already have ${built.label}${built.costume ? "; you're wearing it now" : built.kit ? `; ${built.out} now` : ""}. Don't make a new one`;
         }
         const have = memory.findProp(args.name);
         if (have) { effects.actions.push({ kind: "prop", name: have.name, id: have.id, verb: "summon", archetype: have.archetype, recipe: have.recipe }); memory.usedProp(have.id); return `you already have "${have.name}" (made: ${have.origin}); using it, no new one needed`; }
@@ -832,6 +863,7 @@ export function makeBrain({ memory, fetchImpl = fetch, log = console, story = nu
         return r.duplicate ? `already learning it` : `queued (a few minutes)`;
       }
       case "fix_prop": {
+        args.prop = propArg(args) || args.prop;
         const it = !args.prop || /^(it|this|that|this one|that one|the new one|the thing|thing)$/i.test(String(args.prop).trim());
         const prop = it ? recentProp() : findOwned(args.prop);
         if (!prop) return it ? `there's nothing out to fix; ask which prop they mean` : `you don't have "${args.prop}"; offer to make it (request_prop)`;
@@ -839,7 +871,14 @@ export function makeBrain({ memory, fetchImpl = fetch, log = console, story = nu
       }
       case "show_prop":
       case "use_prop": {
+        args.prop = propArg(args);
+        if (!args.prop) return `say which prop`;
         const prop = findOwned(args.prop);
+        const kitThing = !prop && builtinProp(args.prop);   // his bed, phone, glasses, clipboard: part of him (M5, Nov 8)
+        if (kitThing && kitThing.kit) {
+          if (!effects.actions.some((a) => a.kind === "kit")) effects.actions.push({ kind: "kit", name: kitThing.kit });
+          return `${kitThing.out}`;
+        }
         if (!prop) return `you don't have "${args.prop}"; offer to make it (request_prop)`;
         const use = name === "show_prop" ? "show" : prop.archetype === "launcher" || prop.archetype === "throwable" ? "fire" : prop.archetype === "ride" ? "ride" : "use";
         const taught = use === "use" && prop.id ? memory.propUse(prop.id) : null;   // the way they taught him
@@ -878,6 +917,7 @@ export function makeBrain({ memory, fetchImpl = fetch, log = console, story = nu
         return at === "mimi" ? `${from === "mochi" ? "you throw" : "Cocoa throws"} a ${thing} at Mimi (she's called over first if she isn't here); it gets her, she squeals and giggles` : `${from === "mochi" ? "you throw" : "Cocoa throws"} a ${thing} at ${at === "viewer" ? "them" : at === "mochi" ? "you" : "Cocoa"}; whoever gets hit says ouch and gets a shield ready for next time`;
       }
       case "teach_use": {
+        args.prop = args.prop || args.prop_name || args.item || args.object;   // (args.name is the trick's name)
         const prop = findOwned(args.prop);
         if (!prop) return `you don't have "${args.prop}" yet; offer to make it (request_prop)`;
         const mv = String(args.name || `${prop.name.split(" ").at(-1)} trick`).slice(0, 40);
@@ -891,6 +931,10 @@ export function makeBrain({ memory, fetchImpl = fetch, log = console, story = nu
         if (!what) {   // the activity book, or one he makes up
           if (!raw) return "say which activity";
           const e = bookLookup(raw);
+          // "bake a pumpkin pie" isn't the cake in the book (M5, Nov 6: "that's a cake, can you make a pie?"): the
+          // workbench makes the thing they named
+          const baked = e && e.id === "bake" && /\b((?:pumpkin |apple |cherry |blueberry |lemon |pecan |chocolate |banana |strawberry )?(?:pies?|tarts?|bread|loaf|muffins?|brownies?|donuts?|doughnuts?|croissants?|pancakes?|waffles?|cinnamon rolls?|pretzels?))\b/.exec(raw);
+          if (baked) return runTool("request_prop", { name: baked[1], description: `a ${baked[1]} fresh from the oven` }, effects);
           effects.activityAsk = e ? { kind: "book", id: e.id, ask: `${raw} ${args.subject || ""}`.trim() } : { kind: "improvise", ask: `${raw}${args.subject ? ` (${String(args.subject).slice(0, 60)})` : ""}` };
           return e ? `you're ${e.ing} on screen right now` : `you're making up "${raw}" on the spot with what you've got; it starts in a moment`;
         }
@@ -957,6 +1001,10 @@ export function makeBrain({ memory, fetchImpl = fetch, log = console, story = nu
           const result = runTool(tc.function.name, args, effects);
           effects.toolCalls.push({ name: tc.function.name, args, result });
           messages.push({ role: "tool", tool_call_id: tc.id, name: tc.function.name, content: result });
+          // the words he said with the call were written before it ran: when it didn't work, they're not his answer
+          // (M5, Nov 8: show_prop("little bed") → "you don't have it", and the reply was still "Found it!")
+          // (and "ooh, I don't have one yet, let me make one!" when the tool says he already has one)
+          if (TOOL_FAILED.test(result) || (/^you already have/.test(result) && MAKE_SAY.test(toolWords))) toolWords = "";
         }
         continue;   // let the model write the in-character reply with the tool results in hand
       }
@@ -995,6 +1043,24 @@ export function makeBrain({ memory, fetchImpl = fetch, log = console, story = nu
       const { clean, calls } = leakedToolCalls(content, TOOL_NAMES);
       if (calls.length) { content = clean; effects.leaked = calls.map((c) => c.name); }
       for (const c of calls) effects.toolCalls.push({ name: c.name, args: c.arguments, result: runTool(c.name, c.arguments, effects), leaked: true });
+      // ...and it didn't work, but his words (written before it ran) say it did: "ooh, let me make one!" with nothing
+      // queued, "Found it!" with nothing found (M5, Nov 8). His words give way to what really happened.
+      const had = calls.length && effects.toolCalls.find((t) => t.leaked && /^you already have/.test(t.result));
+      if (had && MAKE_SAY.test(stripActions(content).text)) {
+        const m = /^you already have (?:"([^"]+)"|([^;.(]+))/.exec(had.result), what = m ? (m[1] || m[2]).trim().replace(/^your\b/i, "my") : "one";
+        const line = `Oh wait, I already have ${/^(my|a|an|the)\b/i.test(what) ? what : `my ${what}`}! Here it is!`;
+        console.log(`[honest] ${had.name}: he already has it; "${stripActions(content).text.slice(0, 60)}" → "${line}"`);
+        content = line;
+      }
+      const bad = calls.length && effects.toolCalls.find((t) => t.leaked && TOOL_FAILED.test(t.result));
+      if (bad && CLAIM_SAY.test(stripActions(content).text)) {
+        const what = propArg(bad.args) || nameArg(bad.args);
+        const line = /^say (what|which)/.test(bad.result) ? "Ooh, what should I make? Tell me what it is and I'll build it!"
+          : /^you don't know/.test(bad.result) ? `Hmm, I don't know that one yet. Can you teach me?`
+          : what ? `Hmm, I don't have ${/^(a|an|the|my|your)\b/i.test(what) ? what : `a ${what}`} yet. Want me to make one?` : "Hmm, I don't have that yet. Want me to make one?";
+        console.log(`[honest] ${bad.name} didn't work (${bad.result.slice(0, 60)}); "${stripActions(content).text.slice(0, 60)}" → "${line}"`);
+        content = line;
+      }
     }
     content = plainText(content);
     // who's on stage, or who they asked about (not one they just sent home: "let Mimi go" names her too; review, Nov 3)
@@ -1045,6 +1111,14 @@ export function makeBrain({ memory, fetchImpl = fetch, log = console, story = nu
           }
         }
       }
+    }
+    // His bed, phone, glasses or clipboard, asked for ("can you give me a bed", "make the bed") or said to be right
+    // here ("I already have my little bed right here!"), with nothing on screen (M5, Nov 8, twice): out it comes.
+    if (!calm && !effects.actions.some((a) => a.kind === "kit" || a.kind === "prop" || a.kind === "costume")) {
+      const lowT = String(text).toLowerCase(), lowS = String(spoken).toLowerCase();
+      const asked = builtinProp(lowT), said = builtinProp(lowS);
+      const k = asked && asked.kit && KIT_ASK.test(lowT) && !NOT.test(lowT) ? asked : said && said.kit && KIT_SAY.test(lowS) ? said : null;
+      if (k) { effects.actions.push({ kind: "kit", name: k.kit }); effects.backstop = effects.backstop || "kit"; }
     }
     // They said it's too big (or he said he'd make it smaller) but no fix_prop came (M5, Nov 2: "no it doesnt, it is too
     // big" → "Too big for what?" → "the soup" → "I'll try to make a smaller bowl", and nothing happened).

@@ -37,6 +37,8 @@ import { beat, unbeat, whoStays, BEAT_MS } from "./solo.js";
 import { hintIntent, hintPlan, hintNote, hintClean } from "./hints.js";
 import { dressIntent, dressPlan, dressNote } from "./dress.js";
 import { gradeAnswer, answerNote, GAME_NOTE, pickScene, scrapLine, pickCall, gradeChoice, choiceNote, TELLS as SCAM_TELLS, afterScene, choiceScene, SKILL_PACK, downloadBeats } from "./scams.js";
+// asking him to get his scam-spotting skill ("download the scams knowledge", "can you learn about scams?")
+export const SKILL_ASK = /\b(?:download|install|upload|load)\b[^.?!]{0,40}\b(?:scams?|scam[- ]spotting|skill ?packs?)\b|\b(?:you|mochi)\b[^.?!]{0,20}\b(?:learn|study)\b[^.?!]{0,30}\bscams?\b/i;
 import { makePractice, practiceNote, PRACTICE } from "./practice.js";
 import { scamCheckAsk, checkMessage, checkNote, WAITING_NOTE, fallbackLine, evaluate, parseSet, readerName, setWordModel, noticeScam, pauseNote } from "./scamcheck.js";
 import { SCAM_SET, HELD_OUT } from "./scamset.js";
@@ -501,6 +503,19 @@ export async function createServer(opts = {}) {
     // "Is this a scam? …" (scamcheck.js, Nov 7, the T-Mobile track): Mochi's rules and Nemotron (Gemma if it can't) read
     // the pasted message; a card on screen, his answer in his own words. Nothing else happens on this turn: a pasted
     // "send me gift cards" isn't a request. Asked with nothing pasted, the next message is the one to check.
+    // "Can you download the scam knowledge?" (M5, Nov 8: "I don't have a way to download things like that", though he
+    // does): he downloads his scam-spotting skill pack right then, or says he already has it
+    if (!f.crisis && state.strikes < 3 && SKILL_ASK.test(text) && !scamCheckAsk(text)) {
+      const fresh = !hasSkill(SKILL_PACK.id) && learnSkill(SKILL_PACK.id, SKILL_PACK.name);
+      const first = { id, mood: fresh ? "excited" : "proud", strikes: state.strikes };
+      broadcast({ type: "first", ...first });
+      memory.turn("user", text, { feelings: f.model, rule });
+      if (fresh) broadcast({ type: "skill", download: { skill: SKILL_PACK.name, items: SKILL_PACK.items } });
+      const line = fresh ? "Ooh, yes! Downloading my scam-spotting skill pack now… Then show me a message you're not sure about, and I'll check it."
+        : "I already downloaded my scam-spotting skill pack! Show me a message you're not sure about, and I'll check it.";
+      memory.turn("assistant", line, { skill: fresh ? SKILL_PACK.id : "known" });
+      return res.json({ ...first, reply: { text: line, actions: [{ kind: "mood", name: fresh ? "excited" : "proud" }] } });
+    }
     const scamWait = memory.get("scamcheck.waiting", null);
     const scamAsk = f.crisis || state.strikes >= 3 ? null : scamCheckAsk(text) || (scamWait && Date.now() - scamWait < 10 * 60000 && String(text).trim().length >= 15 ? { message: String(text).trim().slice(0, 2000) } : null)
       || (() => { const n = noticeScam(text); return n ? { ...n, noticed: true } : null; })();   // (the scam shield: a scammy message pasted without asking, Nov 7)
