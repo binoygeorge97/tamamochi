@@ -30,7 +30,7 @@ const TIMEOUTS = { recipe: 75000, fix: 75000, remake: 75000, move: 60000, "move-
 // is used more in this prop creating part"): with "geminiMore" (on unless keys.json says "geminiMore": false) every
 // Gemini model also writes first tries (recipe, move) and does Pip's checks (the blind look, same-or-not, picking the
 // best take, does it fit), taking turns with the other Gemini; Gemma on this computer is still the floor for each.
-const GEMINI_MORE = ["recipe", "move", "look", "same", "pick", "fit"];
+const GEMINI_MORE = ["recipe", "move", "look", "same", "pick", "fit", "textspot", "textread"];   // (textspot, textread: words on a prop, Nov 8)
 const isGemini = (p) => /^gemini/i.test(p.name) || /generativelanguage\.googleapis\.com/.test(String(p.baseUrl || "")) || /^gemini/i.test(String(p.model || ""));
 
 /* ------------------------------------------------------------------ config */

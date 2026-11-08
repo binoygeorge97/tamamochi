@@ -291,10 +291,35 @@ export function partMaterial(material, color, pattern = null) {
   }
 }
 
+// words on a prop (Nov 8, the "text" part: shared/craft.js): drawn on a canvas in his rounded toy font, with a soft
+// outline in the opposite shade so they read on any colour, on a flat label at the front of the part's thin box
+const lum = (hex) => { const n = parseInt(String(hex).replace("#", "").padEnd(6, "0").slice(0, 6), 16); return (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255; };
+function textMesh(p) {
+  const [w, h, d] = p.size, H = 128, W = Math.max(64, Math.min(1024, Math.round(H * (w / Math.max(0.005, h)))));
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const g = c.getContext("2d"), font = (px) => `800 ${px}px Fredoka, "Nunito Sans", "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif`;
+  let px = 104; g.font = font(px);
+  const m = g.measureText(p.text).width; if (m > W * 0.9) { px = Math.max(12, Math.floor(px * (W * 0.9) / m)); g.font = font(px); }
+  g.textAlign = "center"; g.textBaseline = "middle"; g.lineJoin = "round";
+  g.lineWidth = Math.max(3, px * 0.16); g.strokeStyle = lum(p.color) > 0.55 ? "rgba(40,30,60,0.85)" : "rgba(255,255,255,0.9)";
+  g.strokeText(p.text, W / 2, H / 2 + px * 0.04); g.fillStyle = p.color; g.fillText(p.text, W / 2, H / 2 + px * 0.04);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  const mat = new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.2, roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  mat.userData.textTex = t;
+  const geo = new THREE.PlaneGeometry(w, h); geo.translate(0, 0, d / 2);
+  return new THREE.Mesh(geo, mat);
+}
 /** Build a prop from a validated recipe. Returns a Group; group.userData = { recipe, muzzle (Vector3 or null) }. */
 export function buildProp(recipe, { shadows = true } = {}) {
   const group = new THREE.Group(), mats = new Map();
   for (const p of recipe.parts || []) {
+    if (p.shape === "text") {   // words on it (Nov 8)
+      if (typeof document === "undefined" || !p.text) continue;
+      const mesh = textMesh(p); mesh.position.set(p.at[0], p.at[1], p.at[2]);
+      const r = p.rotate || [0, 0, 0]; mesh.rotation.set(r[0] * DEG, r[1] * DEG, r[2] * DEG);
+      mesh.userData.label = String(p.label || "words").toLowerCase(); mesh.userData.part = p; mesh.renderOrder = 3;
+      group.add(mesh); continue;
+    }
     const pat = p.pattern ? { kind: p.pattern, color: p.pattern_color || "#fbf8f2", along: p.shape === "torus" || p.shape === "tube" ? "u" : "v", shape: p.shape, repeat: sizedRepeat(p) } : null;
     const key = `${p.material}|${p.color}${pat ? `|${pat.kind}|${pat.color}|${pat.shape}|${pat.repeat || ""}` : ""}`;
     if (!mats.has(key)) mats.set(key, partMaterial(p.material, p.color, pat));
@@ -317,6 +342,6 @@ export function disposeProp(group) {
   if (!group) return;
   const mats = new Set();
   group.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) mats.add(o.material); });
-  mats.forEach((m) => { if (m.userData && m.userData.patternTex) m.userData.patternTex.dispose(); if (m.dispose) m.dispose(); });   // (a pattern's own copy; the drawn canvas is shared)
+  mats.forEach((m) => { if (m.userData && m.userData.patternTex) m.userData.patternTex.dispose(); if (m.userData && m.userData.textTex) m.userData.textTex.dispose(); if (m.dispose) m.dispose(); });   // (a pattern's own copy; the drawn canvas is shared)
   if (group.parent) group.parent.remove(group);
 }

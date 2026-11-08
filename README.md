@@ -42,6 +42,8 @@ Things to try:
 - **Money you can see and hear:** the props show what's really inside (the savings jar fills up, the three jars show spend, save and share, Mochi Bank's star spins while money grows there, the money tree grows a coin per interest payment), and every transaction plays out: the amount floats up (+$3, −$3, ♡ $1) with a clink or a cha-ching, he holds up the receipt after buying and an IOU after lending, the bank's door opens for a deposit. Tap them: the register's drawer slides out and he says the numbers.
 - **Numbers come from code, not the model,** so his words and the card agree. It's play money, the 5% a week interest is a play rate so kids can see it grow, and it isn't financial advice.
 
+**Words on his props.** "Write PNC on the bank": Gemini Flash looks at the prop's parts and picks where words belong (a sign, a label, the band over the door), code fits the letters flat on that spot (or puts up a little sign when it's too small or covered), and Gemini reads the drawing back without being told what it should say. Short, kind words only, in his own rounded font: never a company's logo.
+
 **He has feelings.** A small model we trained ourselves (RoBERTa, 15 ms a message) reads who a message is aimed at, so "I hate my boss" makes him worried for you, not hurt.
 
 ## How it's built
@@ -84,6 +86,7 @@ On our 48 hand-written test messages, the three together caught every scam with 
 | `server/money.js` | Money World: wallet, piggy bank, Mochi Bank, the money card, what-ifs, lending, money skits |
 | `server/skitgen.js` | Nemotron writes new money skits; code and Gemma check them |
 | `shared/pocket-money.js` | 18 money props (wallet, little bank, three money jars, lemonade stand…) |
+| `server/textfit.js` | Words on a prop: where they go (Gemini), how they fit (code), the blind read-back |
 | `shared/money-look.js`, `web/moneyfx.js` | Money props that show the real balances; floating amounts, sounds and coins for every transaction |
 | `server/router.js` | Which model does which job (Gemma, Nemotron, Gemini) |
 | `server/practice.js` | Nemotron remaking props in the background while Mochi is idle |

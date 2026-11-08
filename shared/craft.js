@@ -551,6 +551,19 @@ function rideInfo(parts, name) {
   const sail = !fly && (SAILING.test(n) || (!drive && parts.some((p) => /hull|^sail$|^mast$/.test(lab(p)))));
   return { seat: at, rideKind: fly ? "fly" : sail ? "sail" : board ? "board" : drive && !parts.some((p) => /pedal/.test(lab(p))) ? "drive" : parts.some((p) => /pedal/.test(lab(p))) ? "pedal" : "sit", bars: steer ? top(steer) : bars ? top(bars) : null, ...(back ? { passenger: top(back) } : {}) };
 }
+// ---- words on a prop (Nov 8, Binoy: "what if the user asks for a certain word or letters or numbers on a prop, like
+// writing out PNC on the bank"). A "text" part is a flat label: up to 12 letters, numbers or a few signs, drawn in his
+// rounded toy font on a thin plate facing the viewer (or lying on a top, rotate [-90, 0, 0]). Only code places one
+// (server/textfit.js, where Gemini picks the spot): the recipe prompt still says no words, so models don't add them.
+export const TEXT_MAX = 12;
+const TEXT_RUDE = /\b(?:fuck\w*|shit\w*|bitch\w*|ass(?:hole)?|dick|cunt|piss|crap|damn|bastard|slut|whore|fag\w*|nigg\w*|retard\w*|sex\w*|porn\w*|kill|die|hate|nazi|kkk)\b/i;
+/** what can be written: trimmed, ordinary letters, numbers and a few signs, at most TEXT_MAX; null if it can't */
+export function cleanText(s) {
+  const t = String(s ?? "").normalize("NFKC").replace(/[“”"]/g, "").replace(/[^A-Za-z0-9 &!?.,:%'$¢£€#+♡★\-]/g, "").replace(/\s+/g, " ").trim();
+  if (!t || t.length > TEXT_MAX || !/[A-Za-z0-9♡★$]/.test(t)) return null;
+  if (TEXT_RUDE.test(t) || /\d{6,}/.test(t.replace(/[\s.-]/g, ""))) return null;   // (kind words only; no phone numbers or long codes)
+  return t;
+}
 export function validateProp(input, { request } = {}) {
   const errors = [], warnings = [];
   let r = input;
@@ -574,6 +587,15 @@ export function validateProp(input, { request } = {}) {
   const parts = [];
   rawParts.slice(0, MAXP).forEach((q, i) => {
     if (!q || typeof q !== "object") { warnings.push(`part ${i + 1} is not an object; dropped`); return; }
+    if (String(q.shape || "").trim().toLowerCase() === "text") {   // words on it (Nov 8): a flat label, kept as placed
+      const text = cleanText(q.text);
+      if (!text) { warnings.push(`part ${i + 1}: words that can't be written; dropped`); return; }
+      const sz = vec3(q.size, [0.3, 0.1, 0.01], `part ${i + 1} size`, warnings, true).map((v) => round3(clamp(Math.abs(v), 0.005, FIT)));
+      const at = vec3(q.at, [0, 0, 0], `part ${i + 1} at`, warnings).map((v) => round3(clamp(v, -FIT * 1.25, FIT * 1.25)));
+      const rot = vec3(q.rotate, [0, 0, 0], `part ${i + 1} rotate`, warnings).map((d) => Math.round(((d % 360) + 540) % 360 - 180));
+      parts.push({ shape: "text", text, size: [sz[0], sz[1], Math.min(sz[2], 0.02)], at, rotate: rot, color: normColor(q.color, "plastic"), material: "plastic", label: String(q.label || "words").slice(0, 24) });
+      return;
+    }
     const fix = [];
     let shape = normShape(q.shape || q.type || q.kind || q.geometry);
     if (!shape) { warnings.push(`part ${i + 1}: unknown shape "${q.shape}", used sphere`); shape = "sphere"; }

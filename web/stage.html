@@ -1673,6 +1673,11 @@
       const empty = r.moneyProp.name === "wallet" && !r.moneyProp.recipe.parts.some((p) => p.label === "play money peeking out");
       if (empty && window.MONEY_FX) setTimeout(() => { const m0 = M(); if (m0 && m0.fx) { m0.fx("huff"); m0.fx("huff"); } window.MONEY_FX.float("$0", { tone: "minus", who: "prop", small: true }); window.MONEY_FX.sound("pop"); if (m0 && m0.play) m0.play("sad", 1200); }, 1100);   // (an empty wallet: a little puff of dust, Nov 8)
     });   // (his wallet, the little bank, the jars…: Nov 8)   // the piggy bank: a goal, a coin in, the goal reached
+    if (r.wrote && r.wrote.recipe && PR()) setTimeout(() => {   // words on a prop (Nov 8): out it comes, with them on it
+      showProp({ name: r.wrote.name, archetype: r.wrote.archetype, recipe: r.wrote.recipe, fixed: true }, 30000);
+      const m0 = M(); if (m0 && m0.fx) for (let i = 0; i < 4; i++) setTimeout(() => m0.fx("star"), 300 + i * 160);
+      bubble(`[${r.wrote.by && r.wrote.by !== "code" ? `${r.wrote.by} picked the spot` : "the spot"}: ${r.wrote.spot}${r.wrote.sign ? ", on a little sign" : ""}${r.wrote.read === true ? ` · read back blind: "${r.wrote.readAs}"` : ""}]`, "sys keep");
+    }, 250);
     if (r.money && r.money.earned) afterDl(() => {   // Money World: play money earned (a job, a chore, the allowance): coins jingle in
       if (window.MONEY_FX) window.MONEY_FX.pay({ kind: "earn", amount: r.money.earned, wallet: r.money.wallet });   // (+$3 floats up, coins jingle in: Nov 8)
       else { const m0 = M(); for (let i = 0; i < Math.min(5, Math.max(1, Math.round(r.money.earned))); i++) setTimeout(() => m0 && m0.fx && m0.fx("coin"), 150 + i * 170); }

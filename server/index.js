@@ -47,6 +47,7 @@ import { genJobs, genPrompt, genRows, dedupe, GEN_SCHEMA, trainBayes, split } fr
 import { revealVerdict, unsureLine } from "./verdict.js";
 import { moneyState, moneyIntent, moneyCard, moneyNote, whatIf, whatIfScene, applyPick, loanAskScene, loanDue, repay, mimiAskScene, mimiLearned, earn, earnNote, forecast, logIt, fmt as moneyFmt, the as theGoal, TEACH_NOTE as MONEY_TEACH, EARN_NOTE as MONEY_EARN, RULES as MONEY_RULES, MONEY_SKILL, skillDownload, SKILL_NOTE as MONEY_SKILL_NOTE, MONEY_SKILL_ASK, pickSkit, skitScene, skitAnswer, skitReveal, accrue, growth, BANK_RATE, setExtraSkits, extraSkits, depositScene, withdrawScene, shareScene, interestScene } from "./money.js";
 import { moneyLook, lookState } from "../shared/money-look.js";
+import { textIntent, writeOn, TEXT_MAX } from "./textfit.js";
 import { propActIntent, propActNote } from "../shared/propact.js";
 import { normColor } from "../shared/craft.js";
 import { makeRenderer } from "./renderer.js";
@@ -690,6 +691,41 @@ export async function createServer(opts = {}) {
     playScene(scene, seq, Math.min(9000, 1200 + 45 * line.length) + 900 + (download ? 6000 : 0));   // (after the download card and his answer)
     return res.json({ ...first, reply: { text: line, say: tagged && tagged !== line && stripTags(tagged) === line ? tagged : undefined, actions: [{ kind: "mood", name: mood }], moneyCard: card || undefined, growthCard: growthCard || undefined, download: download || undefined, llm } });
   }
+  // ---- words on a prop (textfit.js, Nov 8): "write PNC on the bank", "make your car say 7". Gemini picks the spot,
+  // code fits the words, Gemini reads the drawing back blind. The prop with its words comes out in his hoof (or beside
+  // him); the plain pattern on his shelf stays as it was.
+  const WORD_ALIAS = { bank: "little bank", "mochi bank": "little bank", jar: "savings jar", "piggy": "piggy bank", jars: "three money jars", "money jars": "three money jars",
+    register: "cash register", till: "cash register", tree: "growing money tree", "money tree": "growing money tree", stand: "lemonade stand", atm: "money machine" };
+  function wordsProp(target, holding) {
+    const t = String(target || "").toLowerCase().replace(/^(?:little|toy|new)\s+/, "").trim(), held = holding && typeof holding.name === "string" ? holding.name.toLowerCase() : null;
+    const shelf = memory.props();
+    const named = (n) => { const k = String(n).toLowerCase(); const s = shelf.find((p) => p.name.toLowerCase() === k); if (s) return { name: s.name, archetype: s.archetype, recipe: s.recipe }; const e = POCKET.find((x) => x.name === k); return e ? { name: e.name, archetype: e.archetype, recipe: e } : null; };
+    if (held && (/^(?:it|this|that|this one|that one|this thing|that thing|the thing)$/.test(t) || held === t || held.endsWith(` ${t}`))) { const r = named(held); if (r) return r; }
+    const exact = named(WORD_ALIAS[t] || t); if (exact) return exact;
+    const ends = (n) => { const k = n.toLowerCase(); return k === t || k.endsWith(` ${t}`) || k.startsWith(`${t} `); };
+    const s = shelf.filter((p) => ends(p.name)).sort((a, b) => a.name.length - b.name.length)[0]; if (s) return { name: s.name, archetype: s.archetype, recipe: s.recipe };
+    const e = POCKET.filter((x) => ends(x.name)).sort((a, b) => a.name.length - b.name.length)[0];
+    return e ? { name: e.name, archetype: e.archetype, recipe: e } : null;
+  }
+  async function wordsTurn(w, { text, id, f, rule, holding, res }) {
+    const answer = (line, mood, more = {}) => {
+      const first = { id, mood, strikes: state.strikes, ...more };
+      broadcast({ type: "first", ...first });
+      memory.turn("user", text, { feelings: f.model, rule, words: true }); memory.turn("assistant", line, { words: true });
+      res.json({ ...first, reply: { text: line, actions: [{ kind: "mood", name: mood }] } });
+      return true;
+    };
+    if (w.askName) return answer("Ooh, yes! What's your name? Say it like: write Sam on the bank.", "curious");
+    if (!w.text) return answer(`I can only write short, kind words: up to ${TEXT_MAX} letters or numbers.`, "thinking");
+    const P = wordsProp(w.target, holding);
+    if (!P) return answer(`I don't have a ${w.target} yet! Ask me to make one, then I'll write "${w.text}" on it.`, "curious");
+    const r = await writeOn(P.recipe, w.text, { llm: craftLLM, renderer, log: console });
+    if (!r || !r.ok) return answer(`Hmm, there's nowhere flat on my ${P.name} to write on.`, "thinking");
+    console.log(`[words] "${w.text}" on the ${P.name}: the ${r.spot.side} of the "${r.spot.label}"${r.sign ? ", on a little sign" : ""}, picked by ${r.by}; ${r.read === true ? `read back blind: "${r.readAs}"` : r.read === false ? `read back as "${r.readAs}" (not it)` : "not checked"}; ${r.tries} tr${r.tries === 1 ? "y" : "ies"}, ${r.ms} ms`);
+    try { memory.scrap(`I wrote "${w.text}" on my ${P.name}`, "story"); } catch (_) { /* fine */ }
+    const line = r.read === false ? `Here's my ${P.name} with "${w.text}" on it! Can you read it?` : `Ta-da! "${w.text}" on my ${P.name}!`;
+    return answer(line, "excited", { wrote: { name: P.name, archetype: P.archetype, recipe: { ...r.recipe, name: P.name, archetype: P.archetype }, text: w.text, by: r.by, read: r.read, readAs: r.readAs, sign: r.sign, spot: `the ${r.spot.side} of the ${r.spot.label}` } });
+  }
   // a loan that's due: Cocoa (or Mimi) runs in and pays back, after this reply
   function repayLater(seq, afterMs) {
     const m = moneyState(memory.get("money", null));
@@ -762,6 +798,9 @@ export async function createServer(opts = {}) {
     // Mochi's Money World (money.js, Nov 8, the PNC track): the money card, "what if", buying at Mimi's stand, the
     // allowance, lending to Cocoa, teaching Mimi a money rule. Play money only; the numbers come from memory, so what
     // he says and what the card shows always agree. A loan counts turns, so Cocoa pays back a little later.
+    // words on a prop (Nov 8): "write PNC on the bank" (before money: "the bank" here is a prop, not a deposit)
+    const wWant = f.crisis || state.strikes >= 3 ? null : textIntent(text);
+    if (wWant && await wordsTurn(wWant, { text, id, f, rule, holding, res })) return;
     const mNow = moneyState(memory.get("money", null));
     if (mNow.loan) { mNow.loan.turns = (mNow.loan.turns || 0) + 1; memory.set("money", mNow); }
     let mWant = f.crisis || state.strikes >= 3 || state.careUntil > Date.now() ? null : moneyIntent(text, mNow);
