@@ -299,7 +299,7 @@
     <div class="card demo-card">
       <p class="name">Save him as he is now, and put him back between demos</p>
       <p class="why" id="demoInfo">Checking for a saved demo…</p>
-      <div class="demo-row"><button type="button" id="demoSave">Save as the demo</button><button type="button" id="demoReset" class="ghost">Reset to the demo</button><button type="button" id="demoZero" class="ghost">Day zero</button><button type="button" id="demoClear" class="ghost">Clear his props</button></div>
+      <div class="demo-row"><button type="button" id="demoSave">Save as the demo</button><button type="button" id="demoReset" class="ghost">Reset to the demo</button><button type="button" id="demoZero" class="ghost">Day zero</button><button type="button" id="demoClear" class="ghost">Clear his props</button><button type="button" id="demoSkills" class="ghost" title="He downloads the scam-spotting pack again the next time scams come up">Forget his skills</button></div>
       <p class="small" id="demoMsg" role="status"></p>
     </div>
     <div class="card demo-card">
@@ -376,6 +376,12 @@
       catch (_) { msg.textContent = "Couldn't reach the server."; }
       load(); paintLib();
     });
+    // his skill packs: forgotten, so the next demo shows the download again
+    const sk = document.getElementById("demoSkills");
+    sk.onclick = async () => {
+      try { const r = await (await fetch("/api/skills/forget", { method: "POST" })).json(); msg.textContent = r.ok ? (r.forgot ? "Done: next time scams come up, he downloads the scam-spotting pack again." : "He hasn't downloaded any skills yet.") : `Couldn't: ${r.error}`; }
+      catch (_) { msg.textContent = "Couldn't reach the server."; }
+    };
     // every prop off his shelf (saved first; his moves, handshake and memories stay)
     const clr = document.getElementById("demoClear");
     clr.onclick = async () => {

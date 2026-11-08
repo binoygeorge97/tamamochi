@@ -76,7 +76,11 @@ test("in the chat: the game, your answer, his reply, the delete-and-block scene,
     assert.match(sys, /Don't explain scams or name any warning signs now/);
     await wait(1);
     assert.equal(got.length, 1); assert.equal(got[0].need, "scam"); assert.ok(got[0].things[PHONE], "with the phone");
-    const who = got[0].beats[0].who;
+    // the first time scams come up he knows nothing: he downloads the scam-spotting pack, then the scene starts
+    assert.equal(got[0].beats[0].who, "mochi"); assert.match(got[0].beats[0].line, /don't know anything about scams yet/);
+    assert.equal(got[0].beats[1].do, "download"); assert.equal(got[0].beats[1].items.length, 7);
+    assert.equal(got[0].waits, "quiz", "the stage knows the scene waits for an answer");
+    const who = got[0].beats[3].who;
     assert.match(got[0].beats.at(-1).line, /what looks fishy/i);
     const r = await say("the link! and it's rushing you");
     assert.equal(r.reply.text, "Yes! The link is a trick. Never tap it!");
@@ -85,6 +89,13 @@ test("in the chat: the game, your answer, his reply, the delete-and-block scene,
     assert.equal(got[1].need, "scam_after"); assert.equal(got[1].beats[0].who, who);
     const g = await (await fetch(`http://127.0.0.1:${S.port}/api/growth`)).json();
     assert.deepEqual(g.scams, { played: 1, spotted: 1, checked: 0, caught: 0 });
+    assert.deepEqual(g.skills, ["spotting scams"], "he keeps the skill");
+    // the next game: no download again, and no answer → the page asks for the ending; Mochi shows it himself
+    S.memory.set("scam.quiz", { id: "parcel", who: "mimi", tells: ["pay", "link"], at: Date.now() });   // (a question left open)
+    const w = await (await fetch(`http://127.0.0.1:${S.port}/api/scam/wrap`, { method: "POST" })).json();
+    assert.ok(w.skit && w.skit.beats.length >= 4, "an ending");
+    assert.ok(["hug", "dance"].includes(w.skit.beats.at(-1).do));
+    assert.equal((await (await fetch(`http://127.0.0.1:${S.port}/api/scam/wrap`, { method: "POST" })).json()).skit, null, "only once");
     // the question was answered: the next message is just talk again
     await say("the link");
     assert.doesNotMatch(sys, /scam-spotting game: .* just showed you/);

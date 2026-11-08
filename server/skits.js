@@ -223,7 +223,22 @@ export function fallbackSkit(moment, { rnd = Math.random } = {}) {
   };
   const beats = pick(variants[need] || variants.story, rnd)();
   const title = { jobs: `${Name(mimi ? "mimi" : "cocoa")} the ${JOBS[(moment.jobs || [])[0] || "doctor"].name}`, hungry: `${N} brings a snack`, thirsty: `${N} brings a drink`, tired: `${N} tucks him in`, cold: `${N} keeps him warm`, rain: `${N} and the umbrella`, sad_him: `${N} cheers him up`, sad_you: "the cheer-up squad", bored: `${N} comes to play`, good_news: "a surprise party", birthday: "a birthday surprise", miss: `${N} drops by`, story: `${N}'s surprise` }[need] || "a little scene";
-  return { ...clean({ title, beats }, moment), from: "hand-written" };
+  return { ...withEnding(clean({ title, beats }, moment)), from: "hand-written" };
+}
+
+/** every scene ends (Nov 7, Binoy: "make sure the skits all have a conclusion"): one that stops on a question, a line
+ * or a hand-over gets a closing beat (he's happy, and the friend who's there hugs him) */
+const CLOSING_FEEL = new Set(["happy", "love", "laugh", "proud", "excited"]);
+export function withEnding(skit) {
+  const beats = [...(skit.beats || [])], last = beats[beats.length - 1];
+  if (!last) return skit;
+  const done = (["hug", "dance", "piggyback", "leave"].includes(last.do) || (last.do === "feel" && CLOSING_FEEL.has(last.how)) || (last.do === "aside" && !/\?\s*$/.test(last.line || ""))) && !/\?\s*$/.test(last.line || "");
+  if (done) return skit;
+  const friend = [...beats].reverse().find((b) => b.who !== "mochi" && b.do !== "leave");
+  const gone = friend && beats.some((b, i) => b.do === "leave" && b.who === friend.who && i > beats.lastIndexOf(friend));
+  beats.push({ who: "mochi", do: "feel", with: "", how: "happy", line: "" });
+  if (friend && !gone) beats.push({ who: friend.who, do: "hug", with: "", how: "", line: "" });
+  return { ...skit, beats };
 }
 
 /** keep a written scene to what the stage can play: friends arrive before they act, gifts before they're eaten */
@@ -309,13 +324,13 @@ export async function writeSkit({ llm, moment, userText = "", reply = "", recent
 - feel: someone (who) shows a feeling (how)
 - hug: a friend (who) and Mochi hug; dance: someone dances; piggyback: a friend (who) hops on Mochi's back and he carries them about; leave: a friend goes home
 - dress: someone (who: mochi, mimi or cocoa) dresses up for a job; with = one of ${JOB_IDS.join(", ")}; its hat or outfit and its tool go on, then they can play the part
-Things a friend can bring: ${things.join(", ")}. Keep with and how empty when they don't apply. Make it different from the recent scenes. Give it a short title.`,
+Things a friend can bring: ${things.join(", ")}. Keep with and how empty when they don't apply. It has a clear ending: the last beats wrap it up (the problem is solved or the surprise lands, and everyone reacts: a hug, a dance, a laugh, or Mochi telling the person watching how it turned out). Never end on a question or halfway through something. Make it different from the recent scenes. Give it a short title.`,
       user: `What just happened: ${moment.text}.\nThey said: "${String(userText).slice(0, 200)}"\nMochi answered: "${stripActions(String(reply)).text.slice(0, 240)}"\nWho comes first: ${who}.\nThe shape this time: ${shape.text}.${recent.length ? `\nRecent scenes (do something else this time): ${recent.slice(-4).join("; ")}.` : ""}${recentLines.length ? `\nLines already used (say it differently): ${recentLines.slice(-6).map((l) => `"${l}"`).join(", ")}.` : ""}${facts.length ? `\nAbout the person watching: ${facts.slice(0, 3).join("; ")}.` : ""}\n${momentOfDay()}\nA little twist to work in, if it fits: ${twist}.` });
     const j = r.json || (r.text ? JSON.parse(String(r.text).replace(/^```json|```$/g, "")) : null);
     const sk = clean({ title: j && j.title, beats: j && Array.isArray(j.beats) ? j.beats : [] }, moment);
     if (sk.beats.length >= 4 && sk.beats.some((b) => b.who !== "mochi")) {
       if (attempt === 0 && tooLike(`${sk.title}: ${sk.beats.map((b) => b.line).filter(Boolean).join(" / ")}`, recent)) { log.log && log.log(`[skit] "${sk.title}" came out like a recent one; another go`); continue; }
-      return { ...sk, from: "model", shape: shape.id };
+      return { ...withEnding(sk), from: "model", shape: shape.id };
     }
     log.warn && log.warn("[skit] the model's scene was too thin; using a hand-written one");
     break;

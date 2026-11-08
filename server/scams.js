@@ -112,18 +112,20 @@ export function answerNote(quiz, g, { spotted = 0 } = {}) {
 }
 
 /** after he's answered: they say no to it, it's deleted and blocked, a cheer. Skit beats. */
-export function afterScene(quiz, g, spotted = 0) {
-  const w = quiz.who, mimi = w === "mimi", all = !g.missed.length;
+export function afterScene(quiz, g, spotted = 0, { reveal = false } = {}) {
+  const w = quiz.who, mimi = w === "mimi", all = !g.missed.length && !reveal;
   const thanks = mimi ? (all ? "Wow, you spotted it all! No tapping for me. ♡" : "Ohh, I see it now! No tapping for me. ♡") : (all ? "Dude, you caught every one! Not falling for that." : "Whoa, sneaky! Not falling for that, bro.");
   return {
-    title: "scam spotted",
+    title: reveal ? "Mochi shows what he spotted" : "scam spotted",
     beats: [
       { who: w, do: "arrive", with: "", how: "", line: "" },   // (still here: they stay; gone home meanwhile: back they come)
+      // nobody answered (Nov 7, Binoy: every skit needs an ending): he shows them what he spotted himself
+      ...(reveal ? [{ who: "mochi", do: "say", with: "", how: "", line: `Here's what I spotted: ${list(quiz.tells)}.` }] : []),
       { who: w, do: "friend_say", with: "", how: "", line: thanks },
       { who: "mochi", do: "say", with: "", how: "", line: quiz.id === "code" ? "Hang up, and never share a code. Block!" : "Delete… and block! Bye-bye, scammer!" },
       { who: w, do: "friend_say", with: "", how: "", line: mimi ? (g.found.length ? `I'm going to remember that: ${TELLS[g.found[0]].name}! Thanks for teaching me ♡` : "And I'll tell a grown-up too! ♡") : "I'm telling my mom too. Teamwork!" },
       { who: "mochi", do: "feel", with: "", how: "proud", line: "" },
-      { who: "mochi", do: "aside", with: "", how: "", line: spotted > 1 ? `Scam spotted! That's ${spotted} now. You're getting good at this!` : "Scam spotted! You're a scam-spotter now!" },
+      { who: "mochi", do: "aside", with: "", how: "", line: reveal ? "Next time, you tell me what looks fishy!" : spotted > 1 ? `Scam spotted! That's ${spotted} now. You're getting good at this!` : "Scam spotted! You're a scam-spotter now!" },
       { who: w, do: mimi ? "hug" : "dance", with: "", how: "", line: "" },
     ],
   };
@@ -195,9 +197,11 @@ export function gradeChoice(text, choice) {
   return null;
 }
 /** what happens after their pick. Skit beats; .good: they chose well */
-export function choiceScene(choice, pick) {
+export function choiceScene(choice, pick, { reveal = false } = {}) {
   const c = CALL[choice.id] || CALLS[0];
   const beats = pick === "hang" ? [
+    // nobody picked (Nov 7): Mochi shows the safe choice himself, so the scene still ends
+    ...(reveal ? [{ who: "mochi", do: "aside", line: { "bank-code": "Here's what I'd do: hang up and call the number on the card.", "game-prize": "Here's what I'd do: say no, and hang up.", grandkid: "Here's what I'd do: hang up and call the family on their real number." }[c.id] }] : []),
     { who: "mimi", do: "friend_say", line: { "bank-code": "Nope! I'm hanging up and calling the number on my card. ♡", "game-prize": "No thank you! *click* ♡", grandkid: "I'll call the family on their real number first. Bye! ♡" }[c.id] },
     { who: "mochi", do: "feel", how: "proud", line: "" },
     { who: "cocoa", do: "friend_say", line: c.unmask },
@@ -209,6 +213,8 @@ export function choiceScene(choice, pick) {
     { who: "mochi", do: "aside", line: "Good thinking! See how he dodged it? Now hang up!" },
     { who: "mimi", do: "friend_say", line: "Bye-bye! *click* ♡" },
     { who: "cocoa", do: "friend_say", line: c.unmask },
+    { who: "mochi", do: "feel", how: "proud", line: "" },
+    { who: "mimi", do: "hug", line: "" },
   ] : [
     { who: "mimi", do: "friend_say", line: { "bank-code": "Okay, it's four, two…", "game-prize": "Okay, my password is…", grandkid: "Okay, I'll go buy the gift ca…" }[c.id] },
     { who: "mochi", do: "feel", how: "surprised", line: "" },
@@ -216,11 +222,28 @@ export function choiceScene(choice, pick) {
     { who: "cocoa", do: "friend_say", line: "Darn, so close!" },
     { who: "mochi", do: "aside", line: { "bank-code": "Never share a code: it's the key to your account. Hang up and call the bank yourself.", "game-prize": "Never share a password, not even for a prize.", grandkid: "Real family won't mind if you hang up and call them back." }[c.id] },
     { who: "mimi", do: "friend_say", line: "Phew! Thanks, Mochi. ♡" },
+    { who: "cocoa", do: "friend_say", line: c.unmask },
+    { who: "mimi", do: "hug", line: "" },
   ];
-  return { title: pick === "hang" ? "scam call stopped" : pick === "ask" ? "the scammer dodged" : "Mochi stops Mimi in time", beats: beats.map((b) => ({ with: "", how: "", line: "", ...b })), good: pick === "hang" };
+  return { title: reveal ? "Mochi shows the safe choice" : pick === "hang" ? "scam call stopped" : pick === "ask" ? "the scammer dodged" : "Mochi stops Mimi in time", beats: beats.map((b) => ({ with: "", how: "", line: "", ...b })), good: pick === "hang" };
 }
 /** what the brain is told on the turn they choose */
 export function choiceNote(choice, pick) {
   const c = CALL[choice.id] || CALLS[0];
   return `\nThe scam-call game: Cocoa (in a silly disguise, pretending to be a scammer) phoned Mimi: "${c.lines.join(" ")}". You paused it and asked what Mimi should do; they chose: "${c.options[pick]}". ${pick === "hang" ? "That's the best choice." : pick === "ask" ? "Asking a question is smart (the scammer will dodge it), but hanging up is safest." : "That's what the scammer wants: you'll stop Mimi in time on screen."} Reply in one or two short, warm sentences (${pick === "code" ? "kind, not scolding: it's tricky" : "cheer them on"}). Don't write lines for Mimi or Cocoa: they act it out on screen after you.`;
+}
+
+
+/* ---------- his scam-spotting skill pack (Nov 7, Binoy: "mochi doesn't know anything in the beginning, so how is it
+ * that he knows about the scams? Maybe we could show some sort of downloading of knowledge in him"). The first time
+ * scams come up (a check, the game, a call), he says he doesn't know about scams yet and downloads the pack: the
+ * warning signs tick in one by one, then he can help. Remembered (memory "skills"); Day Zero forgets it. */
+export const SKILL_PACK = { id: "scams", name: "spotting scams", items: ["odd links", "rushing you", "scary threats", "prizes you never entered", "asking for codes", "strange ways to pay", "keep-it-secret"] };
+/** the download, as skit beats (before the scene) */
+export function downloadBeats() {
+  return [
+    { who: "mochi", do: "say", with: "", how: "", line: "Hmm… I don't know anything about scams yet. Let me learn first!" },
+    { who: "mochi", do: "download", with: "", how: "", line: "", skill: SKILL_PACK.name, items: SKILL_PACK.items },
+    { who: "mochi", do: "aside", with: "", how: "", line: `Got it! Now I know ${SKILL_PACK.items.length} warning signs.` },
+  ];
 }

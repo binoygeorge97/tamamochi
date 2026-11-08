@@ -36,7 +36,7 @@ import { makeCrafter, patternRecipe, setLearned, learnable } from "./crafter.js"
 import { beat, unbeat, whoStays, BEAT_MS } from "./solo.js";
 import { hintIntent, hintPlan, hintNote, hintClean } from "./hints.js";
 import { dressIntent, dressPlan, dressNote } from "./dress.js";
-import { gradeAnswer, answerNote, GAME_NOTE, pickScene, scrapLine, pickCall, gradeChoice, choiceNote, TELLS as SCAM_TELLS } from "./scams.js";
+import { gradeAnswer, answerNote, GAME_NOTE, pickScene, scrapLine, pickCall, gradeChoice, choiceNote, TELLS as SCAM_TELLS, afterScene, choiceScene, SKILL_PACK, downloadBeats } from "./scams.js";
 import { makePractice, practiceNote, PRACTICE } from "./practice.js";
 import { scamCheckAsk, checkMessage, checkNote, WAITING_NOTE, fallbackLine, evaluate, parseSet, readerName, setWordModel, noticeScam, pauseNote } from "./scamcheck.js";
 import { SCAM_SET, HELD_OUT } from "./scamset.js";
@@ -245,6 +245,15 @@ export async function createServer(opts = {}) {
   // whether anything leaves the house (cloud crafting models, a cloud voice). The theme line: zero bytes to the cloud.
   // The cloud boost switch (workshop page; only on this computer when he's shared): which cloud models there are, what
   // each does, and whether they're allowed. Models on this computer (LM Studio) are listed apart: they never need it.
+  // his skills (Nov 7): things he downloads the first time they come up (the scam-spotting pack); Day Zero forgets them
+  const hasSkill = (id) => !!(memory.get("skills", null) || {})[id];
+  const learnSkill = (id, name) => {
+    const all = memory.get("skills", null) || {}; if (all[id]) return false;
+    memory.set("skills", { ...all, [id]: { name, at: new Date().toISOString() } });
+    try { memory.scrap(`I downloaded my first skill pack: ${name} (${SKILL_PACK.items.length} warning signs)`, "story"); } catch (_) { /* fine */ }
+    console.log(`[skills] downloaded: ${name}`);
+    return true;
+  };
   const boostInfo = () => {
     const M2 = craftLLM.status ? craftLLM.status() : { providers: [] };
     const each = (p) => ({ name: cloudLabel(p.name), model: p.model, roles: cloudRoles(p), state: p.state });
@@ -278,7 +287,8 @@ export async function createServer(opts = {}) {
     const props = memory.props(), moves = memory.moves(), hs = memory.get("handshake", null);
     const M2 = craftLLM.status ? craftLLM.status() : null, v = voice.status();
     const cloud = [...(M2 ? M2.providers.filter((p) => !p.local && !/^off/.test(p.state)).map((p) => `${cloudLabel(p.name)} (${cloudRoles(p)})`) : []), ...(/elevenlabs/.test(v.tts) || /elevenlabs/.test(v.stt) ? ["elevenlabs (voice)"] : []), ...(factory.enabled() ? ["8090 (feedback)"] : [])];
-    res.json({ day, born, props: props.length, made: props.filter((p) => p.source !== "pocket").length, moves: moves.length, taught: moves.filter((m) => m.source === "posed").length,
+    const skills = Object.values(memory.get("skills", null) || {}).map((x) => x.name);
+    res.json({ day, born, skills, props: props.length, made: props.filter((p) => p.source !== "pocket").length, moves: moves.length, taught: moves.filter((m) => m.source === "posed").length,
       handshake: !!(hs && hs.steps), phrases: memory.phrases().length, facts: memory.facts().length, cloud, local: CONFIG.llm.model, savings: memory.get("savings", null), scams: (({ played = 0, spotted = 0, checked = 0, caught = 0 }) => ({ played, spotted, checked, caught }))(memory.get("scams", null) || {}) });
   });
   app.get("/api/room", (_, res) => res.json({ props: memory.props(), moves: memory.moves(), phrases: memory.phrases(), facts: memory.facts(), scrapbook: memory.scrapbook(), queue: memory.queue() }));
@@ -425,6 +435,20 @@ export async function createServer(opts = {}) {
     console.log(`[props] removed "${p.name}" (kept in his library)`);
     res.json({ ok: true, removed: p.name });
   });
+  // forget his skill packs (Nov 7): so the next demo shows him downloading the scam-spotting pack again
+  app.post("/api/skills/forget", (_, res) => { const had = Object.keys(memory.get("skills", null) || {}); memory.set("skills", null); console.log(`[skills] forgotten: ${had.join(", ") || "none"}`); res.json({ ok: true, forgot: had.length }); });
+  // nobody answered the scam game's question (Nov 7, Binoy: every skit needs an ending): the page asks for the ending
+  // after a while; Mochi shows what he spotted (or the safe choice), and the question is closed
+  app.post("/api/scam/wrap", (_, res) => {
+    const fresh = (x) => x && Date.now() - x.at < 10 * 60000;
+    const quiz = memory.get("scam.quiz", null), choice = memory.get("scam.choice", null);
+    let sk = null;
+    if (fresh(quiz)) { memory.set("scam.quiz", null); sk = afterScene(quiz, { found: [], also: [], missed: quiz.tells, idk: true, guessed: false }, (memory.get("scams", null) || {}).spotted || 0, { reveal: true }); }
+    else if (fresh(choice)) { memory.set("scam.choice", null); sk = choiceScene(choice, "hang", { reveal: true }); }
+    if (!sk) return res.json({ skit: null });
+    console.log(`[scam] no answer: Mochi shows it himself ("${sk.title}")`);
+    res.json({ skit: { title: sk.title, beats: sk.beats, things: skitThings(sk), need: "scam" } });
+  });
   // his saved props: every prop he made before a clear, a delete, a reset or Day Zero; good ones (Pip knew them, or you
   // said they looked right) first. One can go back on his shelf.
   app.get("/api/library", (_, res) => res.json({ props: memory.library() }));
@@ -489,7 +513,8 @@ export async function createServer(opts = {}) {
       // Detective Mochi (Nov 7): on goes the detective hat and out comes the magnifying glass while the two checks run;
       // the answer brings out the stop sign for a scam
       const detProp = (n) => { const e = POCKET.find((x) => x.name === n); return e ? { name: e.name, archetype: e.archetype, recipe: e } : null; };
-      if (scamAsk.message) broadcast({ type: "scamcheck", phase: "start", wear: [detProp("detective hat")].filter(Boolean), hold: detProp("magnifying glass") });
+      const download = scamAsk.message && !hasSkill(SKILL_PACK.id) && learnSkill(SKILL_PACK.id, SKILL_PACK.name) ? { skill: SKILL_PACK.name, items: SKILL_PACK.items } : null;   // (the first time: he learns it before he helps)
+      if (scamAsk.message) broadcast({ type: "scamcheck", phase: "start", wear: [detProp("detective hat")].filter(Boolean), hold: detProp("magnifying glass"), download });
       const check = scamAsk.message ? await checkMessage(scamAsk.message, { llm: craftLLM, log: console }) : null;
       if (check) check.props = { sign: check.verdict === "scam" ? detProp("stop sign") : null, hat: detProp("detective hat") };
       if (check) {
@@ -848,11 +873,13 @@ export async function createServer(opts = {}) {
         const lead = skitLead(mom), away = !(onStage || []).includes(lead.who);
         const moment = lead.both ? mom : { ...mom, who: lead.who, peeked: away };
         if (away) setTimeout(() => { if (seq === chatSeq) broadcast({ type: "skitSoon", who: lead.who, line: skitPeekLine(mom.need, lead.who), need: mom.need }); }, Math.min(3500, Math.round(readMs * 0.45)));
-        writeSkit({ llm: story.llm || null, moment, userText: text, reply: r.text, recent: S0.recent, recentShapes: S0.shapes || [], recentLines: S0.lines || [], facts: memory.facts(8).map((x) => x.text), memory }).then((sk) => {
+        writeSkit({ llm: story.llm || null, moment, userText: text, reply: r.text, recent: S0.recent, recentShapes: S0.shapes || [], recentLines: S0.lines || [], facts: memory.facts(8).map((x) => x.text), memory }).then((sk0) => {
+          // the first scam scene: he downloads the scam-spotting pack before it starts (he knew nothing on day zero)
+          const sk = mom.need === "scam" && sk0.shape === "scam" && (sk0.quiz || sk0.choice) && !hasSkill(SKILL_PACK.id) && learnSkill(SKILL_PACK.id, SKILL_PACK.name) ? { ...sk0, beats: [...downloadBeats(), ...sk0.beats] } : sk0;
           const fire = () => {
             if (seq !== chatSeq) { actBusyUntil = 0; return console.log(`[skit] "${sk.title}": they've moved on, dropped`); }
             const ms = skitMs(sk); actBusyUntil = Date.now() + ms + 1500;
-            broadcast({ type: "skit", title: sk.title, beats: sk.beats, things: skitThings(sk), need: mom.need });
+            broadcast({ type: "skit", title: sk.title, beats: sk.beats, things: skitThings(sk), need: mom.need, waits: sk.quiz ? "quiz" : sk.choice ? "choice" : null });
             const sum = skitSummary(sk); S0.recent = [...S0.recent.slice(-5), sum];   // (what happened in it, not just its name: the next one is steered away from it, variety.js)
             if (sk.shape) S0.shapes = [...(S0.shapes || []).slice(-5), sk.shape];
             S0.lines = [...(S0.lines || []), ...sk.beats.filter((x) => x.line).slice(0, 3).map((x) => x.line)].slice(-9);   // (so the next one says it differently)

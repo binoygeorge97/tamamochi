@@ -111,6 +111,19 @@
   .skillpop.on { opacity: 1; transform: translateX(-50%); }
   .skillpop b { color: var(--accent); letter-spacing: 2px; font-weight: 400; }
   .skillpop i { font-style: normal; color: var(--label-3); margin-left: 6px; }
+  /* his first skill pack downloading (Nov 7: he knew nothing on day zero, so he learns about scams before he helps) */
+  .dl { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); width: min(300px, calc(100% - 32px)); box-sizing: border-box; padding: 12px 14px 10px; border-radius: 16px; background: var(--card); box-shadow: var(--shadow-pop, 0 8px 22px rgba(40,30,60,.18)); z-index: 6; font: 13px/1.35 var(--ui); color: var(--label); animation: dlIn .25s ease-out; }
+  .dl-t { margin: 0; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--label-3); }
+  .dl-n { margin: 2px 0 8px; font-weight: 700; font-size: 15px; }
+  .dl-bar { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--label) 12%, transparent); overflow: hidden; }
+  .dl-bar i { display: block; height: 100%; width: 0; border-radius: 99px; background: var(--accent); transition: width .35s linear; }
+  .dl ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 6px; }
+  .dl li { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: color-mix(in srgb, var(--accent) 14%, transparent); animation: dlIn .2s ease-out; }
+  .dl li::before { content: "✓ "; color: var(--accent); }
+  @keyframes dlIn { from { opacity: 0; transform: translate(-50%, -6px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  .dl li { animation-name: dlPop; } @keyframes dlPop { from { opacity: 0; } to { opacity: 1; } }
+  :root[data-mode="zeroday"] .dl { font-family: var(--mono); border-radius: 6px; background: rgba(2, 14, 8, .94); color: #b8ffd0; box-shadow: 0 0 0 1px rgba(57,255,122,.45); }
+  :root[data-mode="zeroday"] .dl-bar i, :root[data-mode="zeroday"] .dl li::before { background: #39ff7a; color: #39ff7a; } :root[data-mode="zeroday"] .dl-bar i { background: #39ff7a; }
   :root[data-mode="zeroday"] .skillpop { font-family: var(--mono); border-radius: 4px; } :root[data-mode="zeroday"] .skillpop b { color: #39ff7a; }
   /* the menu (Nov 4: one button instead of eight): a card that opens under it; the teaching bars still show on their own */
   .menubtn { width: 40px; height: 40px; padding: 0; justify-content: center; }
@@ -173,6 +186,7 @@
   .msg.friend.mimi { background: color-mix(in srgb, var(--card) 85%, #ff8fb8); }
   /* the scam check (Nov 7): a card under his answer: verdict, how sure, the warning signs with the words that show
      them, what to do, and who checked it */
+  .msg.sys.end { text-align: center; letter-spacing: .08em; font-style: italic; }
   .msg.choices { white-space: normal; display: flex; flex-direction: column; gap: 6px; }
   .msg.choices p { margin: 0 0 2px; font-weight: 600; }
   .msg.choices button { font: 600 14.5px/1.3 var(--ui); text-align: left; padding: 9px 12px; border-radius: 12px; border: 1.5px solid var(--accent); background: transparent; color: var(--label); cursor: pointer; }
@@ -347,6 +361,7 @@
   <div class="status" id="status">connecting…</div>
   <a class="growth" id="growth" href="/room" target="_blank" title="How far he's come (opens his workshop)" hidden></a>
   <div class="skillpop" id="skillpop" role="status" aria-live="polite"></div>
+  <div class="dl" id="dl" role="status" aria-live="polite" hidden><p class="dl-t">Downloading a skill pack</p><p class="dl-n" id="dlName"></p><div class="dl-bar"><i id="dlBar"></i></div><ul id="dlItems"></ul></div>
   <div id="mochi" class="mochi" aria-hidden="true" title="Mochi" data-pad-x="1.15" data-cover="viewport" data-roam="page" data-floor="#composer">
     <canvas></canvas><div class="mochi-hit"></div><div class="mochi-dots"><i></i><i></i><i></i></div>
   </div>
@@ -499,7 +514,33 @@
   // the answer: the stop sign held up for a scam ("Blocked!"), a thinking face when he's not sure, a happy bounce for
   // a normal one; the hat comes off a little later
   let detAt = 0;
-  function detective(m) {
+  // the skill pack (Nov 7): the bar fills, the warning signs tick in one by one, he's thinking hard; ~4 s
+  let dlDone = Promise.resolve();
+  function playDownload(d) {
+    const box = $("dl"), bar = $("dlBar"), ul = $("dlItems"), items = (d && d.items) || [];
+    $("dlName").textContent = (d && d.skill) ? d.skill[0].toUpperCase() + d.skill.slice(1) : "A new skill";
+    ul.innerHTML = ""; bar.style.width = "0"; box.hidden = false;
+    const k = M(); if (k && k.play) k.play("thinking", 4200);
+    dlDone = new Promise((done) => {
+      const step = 520;
+      items.forEach((it, i) => setTimeout(() => { const li = document.createElement("li"); li.textContent = it; ul.appendChild(li); bar.style.width = `${Math.round(((i + 1) / items.length) * 100)}%`; }, 300 + i * step));
+      setTimeout(() => { if (k && k.play) k.play("excited", 1400); }, 400 + items.length * step);
+      setTimeout(() => { box.hidden = true; done(); }, 1500 + items.length * step);
+    });
+    bubble(`[downloading a skill pack: ${(d && d.skill) || "a new skill"}]`, "sys keep");
+    return dlDone;
+  }
+  // a scene that stops on a question (the scam game): if nobody answers, Mochi shows the answer himself, so it ends
+  let wrapT = null;
+  function waitForAnswer() {
+    clearTimeout(wrapT);
+    wrapT = setTimeout(async () => {
+      wrapT = null; if (busy) return;
+      try { const r = await (await fetch("/api/scam/wrap", { method: "POST" })).json(); if (r && r.skit) playSkit(r.skit); } catch (_) { /* later */ }
+    }, 45000);
+  }
+  async function detective(m) {
+    if (m.download) { const k0 = M(); if (k0 && k0.say) k0.say("I don't know anything about scams yet… let me learn!"); bubble("Hmm… I don't know anything about scams yet. Let me learn first!", "mochi"); await playDownload(m.download); bubble("Got it! Now I know the warning signs. Let me look…", "mochi"); }
     const k = M(); if (!k || !PR()) return;
     detAt = Date.now();
     dressOne({ who: "mochi", title: "detective", wear: m.wear || [], hold: m.hold || null });
@@ -669,7 +710,7 @@
     if (g.day <= 1 && !g.made && !g.moves && !welcomed) {
       welcomed = true; showTries(true);
       setTimeout(() => { if (M()) { M().play("hello", 2200); if (M().say) M().say("Hi! I'm Mochi. I don't know much yet…"); } }, 900);
-      setTimeout(() => { bubble("Hi! I'm Mochi. It's my first day, so I don't know anything yet. I learn from you: ask me to make something, draw it for me, or teach me a move with your hands. I'm a scam detective too: show me a message you're not sure about.", "mochi", "", { quiet: true }); }, 2600);
+      setTimeout(() => { bubble("Hi! I'm Mochi. It's my first day, so I don't know anything yet. I learn from you: ask me to make something, draw it for me, or teach me a move with your hands. I can even learn to spot scams: show me a message you're not sure about.", "mochi", "", { quiet: true }); }, 2600);
     }
   }
   let welcomed = false;
@@ -877,6 +918,12 @@
     bubble(`[a little scene: ${b.title}]`, "sys");
     skitOn = true;
     try { await playBeats(); } finally { if (run === skitRun) skitOn = false; }
+    // every scene ends (Nov 7, Binoy): one that asks a question waits for the answer (and ends by itself if none comes);
+    // the rest take a little bow
+    if (run === skitRun && !cut) {
+      if (b.waits) waitForAnswer();
+      else { m.play && m.play("happy", 1400); for (const f of ["mimi", "cocoa"]) if (here(f) && m.friend) m.friend(f, "cheer", 25000); bubble("— the end —", "sys keep end"); }
+    }
     async function playBeats() {
     for (const s of b.beats) {
       if (!live()) break;
@@ -912,6 +959,7 @@
         case "dance": { if (w === "mochi") { m.play("excited", 2400); for (const f of ["mimi", "cocoa"]) if (here(f)) m.friend(f, "dance", 60000); } else m.friend(w, "dance", 60000); if (s.line) (w === "mochi" ? sayM : (l) => sayF(w, l))(s.line); await wait(3200); break; }
         case "piggyback": { if (PR().piggyback) { const r = PR().piggyback(w, { quiet: !!s.line }); if (s.line) sayF(w, s.line); await wait(r && r.ms ? Math.min(12000, r.ms) : 7000); } break; }
         case "leave": { if (s.line) sayF(w, s.line); if (m.dismissFriend) m.dismissFriend(w); await wait(1800); break; }
+        case "download": { await playDownload({ skill: s.skill, items: s.items }); break; }   // his first skill pack (Nov 7)
         case "dress": {   // dressing up for a job in the scene (Nov 7): its hat or outfit and its tool
           const o = things[`job:${s.with}`]; if (!o) break;
           if (w !== "mochi" && !here(w)) { m.friend(w, "hello", 60000, { call: false }); await until(() => arrived(w), 6000); }
@@ -1612,7 +1660,7 @@
   $("composer").addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = input.value.trim(); if (!text || busy) return;
-    input.value = ""; busy = true;
+    input.value = ""; busy = true; clearTimeout(wrapT); wrapT = null;   // (they answered: the scene doesn't end by itself)
     const m = M(); const id = String(Date.now());
     sentText.set(id, text);
     for (const k of sentText.keys()) { if (sentText.size <= 60) break; sentText.delete(k); applied.delete(k); }   // the last 60 messages are enough
@@ -1641,6 +1689,7 @@
       const body = JSON.stringify({ text, id, ...(drew ? { doodle: drew } : {}), rule: m ? m.classify(text) : null, events, costume: wore, mode, holding: PR() ? PR().current() : null, friends: m && m.friends ? m.friends() : null, to: talkingTo !== "mochi" ? talkingTo : null, guard: PR() && PR().guard ? PR().guard() : null, standing: !!(m && m.stance && m.stance().standing) });
       const r = await chatFetch(body);
       applyFirst(r);   // no-op if the WebSocket already delivered it
+      if (r.reply && r.reply.scamCheck) await dlDone;   // (his first skill pack: he answers once it's downloaded)
       if (cueBeatUntil > Date.now()) await new Promise((ok) => setTimeout(ok, cueBeatUntil - Date.now()));   // he looks at it, then answers
       if (m) {
         send("busy", { busy: false });
