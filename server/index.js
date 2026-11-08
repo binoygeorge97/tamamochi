@@ -124,6 +124,7 @@ export function cloudRoles(p) {
   if (fixesOnly) out.push("fixing props");   // (Nov 7: Gemini when Pip or you say a prop isn't right)
   else if (t.some((x) => WRITES.includes(x))) out.push("writing");
   if (t.includes("critique")) out.push("critique");
+  if (t.includes("look")) out.push("checking props");   // (Pip's blind look, Nov 8)
   if (!t.some((x) => WRITES.includes(x)) && b.some((x) => WRITES.includes(x))) out.push("backup writer");
   return out.join(", ") || "crafting";
 }

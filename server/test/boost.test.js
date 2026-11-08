@@ -27,7 +27,7 @@ function net(fail = {}) {
   };
   return { fetchImpl, seen };
 }
-const keys = (o) => { const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mochi-boost-")), file = path.join(dir, "keys.json"); fs.writeFileSync(file, JSON.stringify(o)); return file; };
+const keys = (o) => { const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mochi-boost-")), file = path.join(dir, "keys.json"); fs.writeFileSync(file, JSON.stringify({ geminiMore: false, ...o })); return file; };   // (the roles as they were; Gemini doing more: router.test.js)
 const NEMO = { name: "nemotron", baseUrl: "http://127.0.0.1:1234/v1", model: "nvidia/nemotron-3-nano", vision: false, temperature: 0.2 };
 
 test("on this computer or not: LM Studio's address is local, and a local model needs no key", () => {

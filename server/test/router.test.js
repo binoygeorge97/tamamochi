@@ -16,7 +16,7 @@ function fakeLocal() {
     async chat(a) { calls.push({ what: a.what, local: true }); return { text: '{"from":"gemma"}', json: { from: "gemma" }, ms: 5, usage: null, finish: "stop" }; } };
 }
 const json = (o, status = 200, headers = {}) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json", ...headers } });
-const ENV = { ANTHROPIC_API_KEY: "sk-ant-test-123456", OPENAI_API_KEY: "sk-openai-test-654321", GEMINI_API_KEY: "AIza-test-999999" };
+const ENV = { ANTHROPIC_API_KEY: "sk-ant-test-123456", OPENAI_API_KEY: "sk-openai-test-654321", GEMINI_API_KEY: "AIza-test-999999", MOCHI_GEMINI_MORE: "off" };   // (Gemini doing more: its own test below)
 // a fake internet: answers like each API, or fails the way we tell it to
 function cloud(fail = {}) {
   const seen = [];
@@ -143,4 +143,33 @@ test("Gemma can take a turn too", async () => {
   const R = makeRouter({ local: fakeLocal(), env: {}, keysFile: file, fetchImpl: cloud().fetchImpl, log: quiet });
   const who = []; for (let i = 0; i < 4; i++) who.push((await R.chat({ what: "recipe", user: "x", schema })).provider);
   assert.deepEqual(who, ["anthropic", "local", "anthropic", "local"]);
+});
+
+test("Gemini does more of the workbench: first tries and Pip's checks, in turn with the other Gemini, Gemma the floor (Nov 8)", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mochi-gmore-")), file = path.join(dir, "keys.json");
+  const G = (name) => ({ name, baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", key: "k-" + name, model: name === "gemini-3.6" ? "gemini-3.6-flash" : "gemini-3.8-flash", tasks: ["critique", "fix", "remake", "move-fix"], backup: ["recipe", "move"], always: true });
+  fs.writeFileSync(file, JSON.stringify({ gemini: { key: "AIza-1", model: "gemini-3.8-flash", tasks: ["critique", "fix", "remake", "move-fix"], backup: ["recipe", "move"], always: true }, more: [G("gemini-3.6")] }));
+  const k = readKeys({ file, env: {} });
+  for (const p of k.providers) {
+    for (const t of ["recipe", "move", "look", "same", "pick", "fit", "critique", "fix"]) assert.ok(p.tasks.includes(t), `${p.name} does ${t}`);
+    assert.ok(!p.backup.includes("recipe"), "it leads on first tries now, not just backs up");
+    assert.equal(p.dailyCalls, 2000, "room for several calls a prop");
+  }
+  assert.ok(k.cloudFor.has("look") && k.cloudFor.has("same"));
+  // Pip's blind look goes to a Gemini, the two take turns, and Gemma answers when they can't
+  const C = cloud();
+  const R = makeRouter({ local: fakeLocal(), env: {}, keysFile: file, fetchImpl: C.fetchImpl, log: quiet });
+  const img = ["data:image/png;base64,AAAA"];
+  const a = await R.chat({ what: "look", user: "What object is it?", images: img, schema: { type: "object" }, schemaName: "look" });
+  const b = await R.chat({ what: "look", user: "What object is it?", images: img, schema: { type: "object" }, schemaName: "look" });
+  assert.deepEqual([a.provider, b.provider].sort(), ["gemini", "gemini-3.6"], "in turn");
+  assert.equal((await R.chat({ what: "recipe", user: "x", schema })).provider.startsWith("gemini"), true, "Kit's first try too");
+  assert.equal((await R.chat({ what: "classify", user: "x", schema: { type: "object" } })).provider, "local", "what kind of thing it is stays on Gemma");
+  const down = cloud({ gemini: { status: 503, msg: "overloaded" } });
+  const R2 = makeRouter({ local: fakeLocal(), env: {}, keysFile: file, fetchImpl: down.fetchImpl, log: quiet });
+  assert.equal((await R2.chat({ what: "look", user: "?", images: img, schema: { type: "object" } })).provider, "local", "Gemma is still the floor");
+  // switched off in keys.json: the roles as before
+  fs.writeFileSync(file, JSON.stringify({ geminiMore: false, gemini: { key: "AIza-1", tasks: ["critique"], backup: ["recipe"] } }));
+  const off = readKeys({ file, env: {} });
+  assert.deepEqual(off.providers[0].tasks, ["critique"]); assert.ok(!off.cloudFor.has("look"));
 });

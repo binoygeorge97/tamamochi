@@ -25,7 +25,13 @@ import { extractJson } from "./llm.js";
 export const DEFAULT_MODELS = { anthropic: "claude-sonnet-5-5", openai: "gpt-5.5", gemini: "gemini-3.6-flash" };
 export const GEMINI_OPENAI_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
 const CLOUD_TASKS = ["recipe", "fix", "remake", "move", "move-fix", "critique"];   // what goes to the cloud by default
-const TIMEOUTS = { recipe: 75000, fix: 75000, remake: 75000, move: 60000, "move-fix": 60000, critique: 40000 };
+const TIMEOUTS = { recipe: 75000, fix: 75000, remake: 75000, move: 60000, "move-fix": 60000, critique: 40000, look: 25000, same: 12000, pick: 30000, fit: 25000 };
+// Gemini does more of the workbench (Binoy, Nov 8: "since I have enough Google API credits … Gemini flash 3.8 or 3.6
+// is used more in this prop creating part"): with "geminiMore" (on unless keys.json says "geminiMore": false) every
+// Gemini model also writes first tries (recipe, move) and does Pip's checks (the blind look, same-or-not, picking the
+// best take, does it fit), taking turns with the other Gemini; Gemma on this computer is still the floor for each.
+const GEMINI_MORE = ["recipe", "move", "look", "same", "pick", "fit"];
+const isGemini = (p) => /^gemini/i.test(p.name) || /generativelanguage\.googleapis\.com/.test(String(p.baseUrl || "")) || /^gemini/i.test(String(p.model || ""));
 
 /* ------------------------------------------------------------------ config */
 /** Read the providers from a keys file and/or the environment. Returns { providers: [...], cloudFor: Set, dailyCalls } */
@@ -71,6 +77,17 @@ export function readKeys({ file = null, env = process.env } = {}) {
   for (const m of (Array.isArray(j.more) ? j.more : [])) if (m && m.name && m.baseUrl && (m.key || isLocalUrl(m.baseUrl)) && m.model && m.enabled !== false) providers.push({ name: String(m.name), kind: "openai", key: String(m.key || "lm-studio"), model: String(m.model), baseUrl: String(m.baseUrl), effort: m.effort || null, dailyCalls: +m.dailyCalls || (isLocalUrl(m.baseUrl) ? 100000 : 300), weight: Math.max(0, m.weight ?? 1), ...(m.temperature !== undefined ? { temperature: +m.temperature } : {}), ...(+m.timeoutMs > 0 ? { timeoutMs: +m.timeoutMs } : {}), ...roles(m, null, m.baseUrl) });
   const live = providers.filter((p) => p.weight > 0); providers.length = 0; providers.push(...live);
   const cloudFor = new Set(Array.isArray(j.cloudFor) ? j.cloudFor : String(env.MOCHI_CLOUD_TASKS || CLOUD_TASKS.join(",")).split(",").map((s) => s.trim()).filter(Boolean));
+  if (j.geminiMore !== false && env.MOCHI_GEMINI_MORE !== "off") {
+    const gems = providers.filter(isGemini);
+    for (const p of gems) {
+      const base = p.tasks || [...cloudFor];
+      p.tasks = [...new Set([...base, ...GEMINI_MORE])];
+      p.backup = (p.backup || []).filter((t) => !p.tasks.includes(t));
+      const c = (j && j[p.name]) || (Array.isArray(j.more) ? j.more.find((m) => m && m.name === p.name) : null) || {};
+      if (!(+c.dailyCalls) && !(+j.dailyCalls)) p.dailyCalls = Math.max(p.dailyCalls, 2000);   // (each prop is several calls now)
+    }
+    if (gems.length) for (const t of GEMINI_MORE) cloudFor.add(t);
+  }
   // Gemma can take a share of the cloud work too ("local": { "weight": 1 } puts it in the turn with the others)
   const localWeight = Math.max(0, Math.round(+((j.local && j.local.weight) ?? 0) || 0));
   return { providers, cloudFor, localWeight, error: j.error || null, off: j.off === true || env.MOCHI_CLOUD === "off" };
