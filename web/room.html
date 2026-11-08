@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mochi's workshop · Tamamochi</title>
+<style>
+  /* Fonts are bundled (web/fonts, SIL OFL 1.1) because the demo network has no internet. */
+  @font-face { font-family: "Architects Daughter"; src: url("/fonts/architects-daughter-latin-400-normal.woff2") format("woff2"); font-display: swap; }
+  @font-face { font-family: "Atkinson Hyperlegible"; src: url("/fonts/atkinson-hyperlegible-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Atkinson Hyperlegible"; src: url("/fonts/atkinson-hyperlegible-latin-700-normal.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+
+  :root {
+    --cyan: #1d4f8e; --cyan-deep: #163e72; --ink: #eef5ff; --ink-soft: #b9cff0; --grid: rgba(220, 235, 255, .09); --grid-major: rgba(220, 235, 255, .16);
+    --walnut: #5b3b25; --walnut-dark: #3f2918; --kraft: #d9b37a; --kraft-dark: #b38a52; --paper: #fbf8f1; --graphite: #2a2622;
+    --sticky: #ffe27a; --sticky-pink: #ffc3d8; --bow: #ff74a6; --tape: #efe3c4;
+    --hand: "Architects Daughter", "Comic Sans MS", "Segoe Print", cursive;
+    --read: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--walnut-dark); }
+  body { margin: 0; color: var(--graphite); font: 16px/1.5 var(--read); overflow-x: hidden;
+    background:
+      repeating-linear-gradient(180deg, transparent 0 211px, rgba(0,0,0,.28) 211px 213px, rgba(255,255,255,.04) 213px 214px),
+      repeating-linear-gradient(178deg, rgba(0,0,0,.05) 0 3px, transparent 3px 11px),
+      repeating-linear-gradient(181deg, rgba(255,220,180,.04) 0 1px, transparent 1px 29px),
+      linear-gradient(180deg, #6a452b, var(--walnut) 40%, #4c311e);
+    min-height: 100vh; }
+  a { color: inherit; }
+  :focus-visible { outline: 3px solid var(--bow); outline-offset: 3px; border-radius: 4px; }
+
+  /* ---------- the blueprint sheet ---------- */
+  .sheet { position: relative; margin: 22px auto 0; width: min(1180px, calc(100% - 32px)); color: var(--ink);
+    background:
+      linear-gradient(var(--grid-major) 1px, transparent 1px) 0 0 / 100px 100px,
+      linear-gradient(90deg, var(--grid-major) 1px, transparent 1px) 0 0 / 100px 100px,
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 20px 20px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 20px 20px,
+      radial-gradient(ellipse at 30% 20%, #2560a6, var(--cyan) 55%, var(--cyan-deep));
+    box-shadow: 0 18px 40px rgba(0,0,0,.45), 0 2px 0 rgba(255,255,255,.08) inset; padding: 22px; }
+  .sheet::before { content: ""; position: absolute; inset: 10px; border: 1.5px solid rgba(238,245,255,.55); pointer-events: none; }
+  .sheet-inner { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 12px; align-items: center; padding: 18px 18px 8px; }
+  .lettering h1 { font: 400 clamp(40px, 6.4vw, 76px)/1 var(--hand); margin: 0 0 14px; letter-spacing: .01em; }
+  .lettering h1::after { content: ""; display: block; height: 7px; margin-top: 10px; width: 92%;
+    background: linear-gradient(transparent 0 1px, var(--ink) 1px 3px, transparent 3px 5px, rgba(238,245,255,.55) 5px 6px, transparent 6px);
+    transform: rotate(-.6deg); }
+  .lettering p { font: 400 19px/1.45 var(--hand); color: var(--ink-soft); max-width: 30ch; margin: 0 0 18px; }
+  .back { display: inline-block; font: 400 18px var(--hand); color: var(--ink); text-decoration: none; border: 1.5px solid var(--ink); padding: 6px 14px 4px; border-radius: 3px; }
+  .back:hover { background: rgba(238,245,255,.12); }
+  .drafting { margin: 0; position: relative; }
+  .drafting svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .drafting figcaption { font: 400 17px var(--hand); color: var(--ink-soft); text-align: right; margin-top: -6px; min-height: 1.4em; }
+  #draft .line { fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  #draft .guide { fill: none; stroke: var(--ink); stroke-width: 1; stroke-dasharray: 2 5; opacity: .5; }
+  #draft .dim { fill: none; stroke: var(--ink-soft); stroke-width: 1.2; }
+  #draft .dim.done { marker-start: url(#arrow); marker-end: url(#arrow); }   /* arrowheads only once the line is drawn */
+  #draft text { font: 400 14px var(--hand); fill: var(--ink-soft); opacity: 0; transition: opacity .6s; }
+  #draft text.on { opacity: 1; }
+  #draft .art { transition: opacity .7s; }
+  #draft .art.out { opacity: 0; }
+  #pencil { transition: opacity .4s; }
+
+  /* the title block: his workbench list, the way a drawing records its job */
+  .title-block { position: relative; margin: 8px 18px 6px auto; width: min(640px, 100%); border-collapse: collapse; font: 400 16px var(--hand); color: var(--ink); }
+  .title-block caption { text-align: left; font: 400 20px var(--hand); padding: 0 0 6px 2px; color: var(--ink); }
+  .title-block th, .title-block td { border: 1.5px solid rgba(238,245,255,.6); padding: 7px 10px 5px; text-align: left; vertical-align: middle; }
+  .title-block th { font-weight: 400; color: var(--ink-soft); font-size: 14px; }
+  .title-block td.item { font-size: 18px; }
+  .stamp { display: inline-block; border: 2px solid currentColor; border-radius: 4px; padding: 0 7px; font-size: 14px; transform: rotate(-3deg); color: var(--ink); }
+  .stamp.working { color: #ffe27a; } .stamp.done { color: #9ff0b8; } .stamp.failed { color: #ffb3b3; } .stamp.someday { color: var(--ink-soft); border-style: dashed; }
+  .title-block .empty td { color: var(--ink-soft); font-size: 17px; }
+  .offline { display: none; margin: 4px 18px 0; font: 400 18px var(--hand); color: #ffd1dc; }
+  .offline.on { display: block; }
+
+  /* ---------- the bench ---------- */
+  .bench { position: relative; width: min(1180px, calc(100% - 32px)); margin: 34px auto 60px; display: grid; gap: 34px 28px;
+    grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-areas:
+      "story story story story story story story story story story story story"
+      "art art art art art art art art art art art art"
+      "book book book book book book book book book book book book"
+      "shelf shelf shelf shelf shelf shelf shelf moves moves moves moves moves"
+      "notes notes notes notes notes notes notes notes notes notes notes notes"
+      "phrases phrases phrases phrases phrases scrap scrap scrap scrap scrap scrap scrap"; }
+  .bench section { position: relative; min-width: 0; }
+  .story { grid-area: story; } .art { grid-area: art; } .art[hidden] { display: none; }
+  /* his paintings (Nov 3), framed on the wall */
+  .frames { display: flex; flex-wrap: wrap; gap: 26px; align-items: flex-start; }
+  .frame { margin: 0; background: #e9dcc4; padding: 12px 12px 8px; border-radius: 3px; box-shadow: 0 10px 18px rgba(0,0,0,.35), inset 0 0 0 3px #c9ab7c; width: 220px; }
+  .frame img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #fbf8f1; }
+  .frame figcaption { font: 400 17px/1.3 var(--hand); color: #2b2420; margin-top: 6px; }
+  .frame figcaption small { display: block; font: 12px var(--read); color: #6b5f55; } .shelf { grid-area: shelf; } .moves { grid-area: moves; }
+  /* his own story (Nov 3): a page from his diary */
+  .diary { background: var(--paper); color: #2b2620; padding: 22px 26px 18px 64px; border-radius: 2px 4px 4px 2px; box-shadow: 0 10px 20px rgba(0,0,0,.35); max-width: 760px;
+    background-image: linear-gradient(90deg, transparent 0 46px, #e7a3a3 46px 47.5px, transparent 47.5px), repeating-linear-gradient(transparent 0 31px, #c7d8ef 31px 32px); background-position: 0 0, 0 12px; }
+  .diary .chapter { font: 400 22px/32px var(--hand); margin: 0 0 8px; min-height: 32px; }
+  .diary h3 { font: 700 13px/32px var(--read); margin: 0; color: #6b5f55; }
+  .diary ul { list-style: none; margin: 0; padding: 0; }
+  .diary li { line-height: 32px; font-size: 16px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .diary li .you { font: 700 11px/1 var(--read); color: #fff; background: #b3261e; border-radius: 999px; padding: 3px 7px; }
+  .diary li .why, .diary li .ago { color: #8a7f6f; font-size: 14px; }
+  .diary .bar { display: inline-block; width: 70px; height: 7px; border-radius: 4px; background: #e9e1d2; overflow: hidden; vertical-align: middle; }
+  .diary .bar i { display: block; height: 100%; background: #b3261e; }
+  .diary li.done { color: #2b2620; } .diary li.done::before { content: "✓"; color: #2f9e5b; font-weight: 700; }
+  .diary .small { margin: 8px 0 0; }
+  /* his activity book (Nov 3): everything he can really do, ticked off as he does it */
+  .book { grid-area: book; }
+  .abook { max-width: none; columns: 3 250px; column-gap: 30px; padding-left: 64px; }
+  .abook .cat { break-inside: avoid; margin: 0 0 4px; }
+  .abook h3 { font: 700 13px/32px var(--read); margin: 0; color: #6b5f55; }
+  .abook li { line-height: 32px; font: 400 18px/32px var(--hand); display: flex; gap: 8px; align-items: baseline; }
+  .abook li::before { content: "☐"; color: #a69a88; font: 400 16px var(--read); }
+  .abook li.did::before { content: "☑"; color: #2f9e5b; }
+  .abook li .n { color: #8a7f6f; font: 13px var(--read); }
+  .abook li .need { color: #b3261e; font: 13px var(--read); }
+  :root[data-mode="zeroday"] .diary { color: #dfe6ff; box-shadow: 0 0 0 1px rgba(155, 92, 255, .4), 0 10px 22px rgba(0, 0, 0, .5); } .notes { grid-area: notes; } .phrases { grid-area: phrases; } .scrap { grid-area: scrap; }
+  .demo { grid-column: 1 / -1; max-width: 560px; }
+  .crewhost { margin: 10px 18px 14px auto; width: min(640px, 100%); }
+  .crewhost .crew { --card: #fbf8f1; --label: #2b2420; --label-3: #6b5f55; }
+  .demo-card .why { font-size: 15px; line-height: 24px; margin: 0 0 10px; color: #3a332c; }
+  .demo-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .demo-row button { font: 400 18px var(--hand); border: 1.5px solid #2b2420; background: #2b2420; color: var(--paper); padding: 6px 14px 4px; border-radius: 3px; cursor: pointer; }
+  .demo-row button.ghost { background: transparent; color: #2b2420; }
+  .demo-row button.ask { background: #b3261e; border-color: #b3261e; color: #fff; }
+  .demo-row button:focus-visible { outline: 2px solid #1d4f8e; outline-offset: 2px; }
+  .scamacc table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 6px 0; }
+  .scamacc th, .scamacc td { text-align: left; padding: 4px 6px; border-bottom: 1px solid rgba(0,0,0,.08); }
+  .scamacc td.n { font-variant-numeric: tabular-nums; }
+  .demo-card .small { font-size: 14px; min-height: 1.4em; margin: 8px 0 0; color: #5c4528; }
+  /* masking-tape labels, written in marker */
+  .tape { display: inline-block; margin: 0 0 14px 6px; padding: 5px 16px 3px; font: 400 21px var(--hand); color: #2b2420; background: var(--tape);
+    clip-path: polygon(2% 8%, 98% 0, 100% 52%, 97% 100%, 3% 94%, 0 46%); transform: rotate(-1.2deg); box-shadow: 0 2px 0 rgba(0,0,0,.08); }
+
+  /* pegboard with kraft hang tags */
+  .pegboard { min-height: 230px; padding: 26px 20px 22px; border-radius: 6px; display: flex; flex-wrap: wrap; gap: 26px 22px; align-content: flex-start;
+    background: radial-gradient(circle at 12px 12px, rgba(40,25,10,.55) 2.2px, transparent 3px) 0 0 / 24px 24px, linear-gradient(#c9a272, #b8915f);
+    box-shadow: 0 10px 22px rgba(0,0,0,.35), inset 0 0 0 1px rgba(0,0,0,.15); }
+  .tag { position: relative; width: 190px; padding: 26px 16px 14px 18px; background: var(--kraft); color: #2d2215;
+    clip-path: polygon(14% 0, 86% 0, 100% 12%, 100% 100%, 0 100%, 0 12%); filter: drop-shadow(0 6px 6px rgba(0,0,0,.3)); }
+  .tag::before { content: ""; position: absolute; top: 9px; left: 50%; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%; background: #9c7845; box-shadow: inset 0 0 0 2.5px #f3dfbd; }
+  .tag .name { font: 400 22px/1.15 var(--hand); margin: 4px 0 6px; }
+  .tag .why { font-size: 14.5px; line-height: 1.35; margin: 0 0 8px; }
+  .tag .small { font-size: 12.5px; color: #5c4528; }
+  .tag .pic { display: block; width: 100%; aspect-ratio: 2 / 1; object-fit: contain; margin: 2px 0 6px; border-radius: 3px; background: #ebe7f2; box-shadow: inset 0 0 0 1px rgba(45, 34, 21, .18); }
+  .tag.blank { background: rgba(217,179,122,.55); }
+
+  /* index cards for moves */
+  .cards { display: grid; gap: 16px; }
+  .card { background: var(--paper); padding: 14px 18px 12px; border-radius: 2px; box-shadow: 0 8px 18px rgba(0,0,0,.35);
+    background-image: linear-gradient(transparent 0 38px, #e7a3a3 38px 39.5px, transparent 39.5px), repeating-linear-gradient(transparent 0 23px, #c7d8ef 23px 24px);
+    background-position: 0 0, 0 16px; }
+  .card .name { font: 400 22px/1.2 var(--hand); margin: 0 0 8px; }
+  .card .why { font-size: 15px; line-height: 24px; margin: 0; }
+  .skill { display: flex; align-items: center; gap: 10px; margin-top: 8px; font: 400 15px var(--hand); }
+  .skill .meter { flex: 1; height: 12px; border: 1.5px solid var(--graphite); border-radius: 2px; overflow: hidden; }
+  .skill .meter i { display: block; height: 100%; background: repeating-linear-gradient(-45deg, var(--graphite) 0 1.5px, transparent 1.5px 5px); }
+
+  /* sticky notes */
+  .stickies { display: flex; flex-wrap: wrap; gap: 22px; }
+  .sticky { width: 200px; min-height: 150px; padding: 16px 16px 14px; background: var(--sticky); color: #2b2620; position: relative;
+    box-shadow: 0 12px 16px -8px rgba(0,0,0,.45); }
+  .sticky::after { content: ""; position: absolute; right: 0; bottom: 0; width: 26px; height: 26px; background: linear-gradient(135deg, rgba(0,0,0,.12), rgba(0,0,0,0) 60%);
+    clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+  .sticky.dated { background: var(--sticky-pink); }
+  .sticky .text { font-size: 16.5px; line-height: 1.4; margin: 0; }
+  .sticky .when { font: 400 16px var(--hand); margin-top: 10px; color: #6b4a52; }
+  .sticky .noted { font-size: 12.5px; color: #6f6550; margin-top: 8px; }
+
+  /* notebook page for phrases */
+  .notebook { background: var(--paper); padding: 22px 22px 18px 64px; border-radius: 2px 4px 4px 2px; box-shadow: 0 10px 20px rgba(0,0,0,.35);
+    background-image: linear-gradient(90deg, transparent 0 46px, #e7a3a3 46px 47.5px, transparent 47.5px), repeating-linear-gradient(transparent 0 31px, #c7d8ef 31px 32px);
+    background-position: 0 0, 0 12px; clip-path: polygon(0 0, 100% 0, 100% 100%, 97% 99%, 94% 100%, 90% 98.5%, 85% 100%, 80% 99%, 74% 100%, 0 100%); }
+  .notebook ul { list-style: none; margin: 0; padding: 0; }
+  .notebook li { line-height: 32px; font-size: 16.5px; }
+  .notebook .p { font: 400 20px var(--hand); }
+  .notebook .unsure { color: #8a7f6f; font-style: italic; }
+
+  /* taped scrapbook photos */
+  .photos { display: flex; flex-wrap: wrap; gap: 26px 22px; padding-top: 6px; }
+  .photo { position: relative; width: 210px; background: #fff; padding: 12px 12px 14px; box-shadow: 0 10px 18px rgba(0,0,0,.4); }
+  .photo::before { content: ""; position: absolute; top: -11px; left: 50%; width: 76px; height: 22px; margin-left: -38px; background: rgba(239,227,196,.85); transform: rotate(-4deg); }
+  .photo .pic { height: 92px; border-radius: 1px; background: linear-gradient(160deg, #cfe4f7, #f6d3e2); display: grid; place-items: center; font: 400 34px var(--hand); color: rgba(42,38,34,.55); }
+  .photo .date { font: 400 18px var(--hand); margin: 10px 0 2px; color: #b2456e; }
+  .photo .what { font-size: 14.5px; line-height: 1.35; margin: 0; }
+
+  .empty-note { font: 400 19px var(--hand); color: #f3e3cc; margin: 4px 6px; }
+
+  /* wool tufts drifting over the bench */
+  .fluff { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+  .fluff i { position: absolute; bottom: -30px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff, rgba(255,255,255,.75) 45%, rgba(255,255,255,0) 72%);
+    opacity: .0; animation: drift linear infinite; filter: blur(.3px); }
+  @keyframes drift { 0% { transform: translate(0, 0) rotate(0); opacity: 0; } 8% { opacity: .55; } 85% { opacity: .45; } 100% { transform: translate(var(--dx), -110vh) rotate(260deg); opacity: 0; } }
+  .sheet, .bench { z-index: 1; }
+
+  @media (max-width: 860px) {
+    .sheet-inner { grid-template-columns: 1fr; }
+    .drafting { order: -1; }
+    .bench { grid-template-columns: 1fr; grid-template-areas: "story" "art" "book" "shelf" "moves" "notes" "phrases" "scrap"; }
+    .abook { columns: 1; }
+    .tag, .sticky, .photo { width: calc(50% - 12px); min-width: 150px; }
+  }
+  @media (max-width: 420px) { .tag, .sticky, .photo { width: 100%; } .title-block th:nth-child(3), .title-block td:nth-child(3) { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .fluff { display: none; } #draft text { transition: none; } #draft .art { transition: none; } }
+
+  /* ---------- Zero Day: his workshop after dark (follows the switch on the stage) ---------- */
+  :root[data-mode="zeroday"] { --cyan: #0b1033; --cyan-deep: #05071a; --ink: #8ff3ff; --ink-soft: #b59cff; --grid: rgba(47, 216, 255, .07); --grid-major: rgba(155, 92, 255, .2);
+    --walnut: #0c0f20; --walnut-dark: #05060d; --kraft: #121a33; --paper: #0f1328; --graphite: #dfe6ff; --sticky: #1b1440; --sticky-pink: #2a1236; --bow: #2fd8ff; --tape: #2fd8ff; color-scheme: dark; }
+  :root[data-mode="zeroday"] body { background: radial-gradient(80vw 60vh at 85% 100%, rgba(155, 92, 255, .14), transparent 70%), linear-gradient(180deg, #0d1022, #0a0c1a 40%, #07080f); }
+  :root[data-mode="zeroday"] .sheet { box-shadow: 0 0 0 1px rgba(47, 216, 255, .35), 0 0 40px rgba(61, 123, 255, .18); }
+  :root[data-mode="zeroday"] .tape { color: #05060d; box-shadow: 0 0 14px rgba(47, 216, 255, .5); }
+  :root[data-mode="zeroday"] .pegboard { background: radial-gradient(circle at 12px 12px, rgba(47, 216, 255, .28) 1.6px, transparent 2.6px) 0 0 / 24px 24px, linear-gradient(#0e1226, #0a0d1d); }
+  :root[data-mode="zeroday"] .tag { color: #e4e9ff; box-shadow: 0 0 0 1px rgba(47, 216, 255, .45), 0 8px 22px rgba(61, 123, 255, .2); }
+  :root[data-mode="zeroday"] .tag::before { background: #05060d; box-shadow: inset 0 0 0 2px rgba(47, 216, 255, .7); }
+  :root[data-mode="zeroday"] .tag .small { color: #8d96cf; }
+  :root[data-mode="zeroday"] .tag.blank { background: rgba(18, 26, 51, .75); }
+  :root[data-mode="zeroday"] .tag .pic { background: #1a1f3a; }
+  :root[data-mode="zeroday"] .card, :root[data-mode="zeroday"] .notebook { color: #dfe6ff; box-shadow: 0 0 0 1px rgba(155, 92, 255, .4), 0 10px 22px rgba(0, 0, 0, .5);
+    background-image: linear-gradient(transparent 0 38px, rgba(255, 61, 242, .55) 38px 39.5px, transparent 39.5px), repeating-linear-gradient(transparent 0 23px, rgba(61, 123, 255, .28) 23px 24px); }
+  :root[data-mode="zeroday"] .notebook { background-image: linear-gradient(90deg, transparent 0 46px, rgba(255, 61, 242, .55) 46px 47.5px, transparent 47.5px), repeating-linear-gradient(transparent 0 31px, rgba(61, 123, 255, .28) 31px 32px); }
+  :root[data-mode="zeroday"] .sticky { color: #f0e6ff; box-shadow: 0 0 0 1px rgba(255, 61, 242, .45), 0 10px 20px rgba(0, 0, 0, .45); }
+  :root[data-mode="zeroday"] .sticky .when, :root[data-mode="zeroday"] .sticky .noted { color: #c9a6ff; }
+  :root[data-mode="zeroday"] .photo { background: #10142a; box-shadow: 0 0 0 1px rgba(47, 216, 255, .35), 0 10px 18px rgba(0, 0, 0, .5); }
+  :root[data-mode="zeroday"] .photo .pic { background: linear-gradient(160deg, #13305a, #3a1659); color: rgba(143, 243, 255, .7); }
+  :root[data-mode="zeroday"] .photo .date { color: #ff7ae6; }
+  :root[data-mode="zeroday"] .fluff i { background: radial-gradient(circle at 40% 35%, #8ff3ff, rgba(47, 216, 255, .5) 45%, rgba(47, 216, 255, 0) 72%); }
+  :root[data-mode="zeroday"] .empty-note { color: #b59cff; }
+</style>
+</head>
+<body>
+<div class="fluff" id="fluff" aria-hidden="true"></div>
+
+<header class="sheet">
+  <div class="sheet-inner">
+    <div class="lettering">
+      <h1>Mochi's workshop</h1>
+      <p>Everything he's making, keeps and remembers. It fills in while you chat.</p>
+      <a class="back" href="/">Back to Mochi</a> <a class="back" href="/voices">Voices</a>
+    </div>
+    <figure class="drafting" aria-label="Mochi's drawing board">
+      <svg id="draft" viewBox="0 0 420 300" role="img" aria-labelledby="drafting-caption">
+        <defs><marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9" fill="none" stroke="#b9cff0" stroke-width="1.6"/></marker></defs>
+        <g id="art" class="art"></g>
+        <g id="pencil" opacity="0"><g transform="rotate(32)">
+          <polygon points="0,0 6.5,-17 -6.5,-17" fill="#f1d4a1"/><polygon points="0,0 2.4,-6.3 -2.4,-6.3" fill="#2a2622"/>
+          <rect x="-6.5" y="-74" width="13" height="57" fill="#ffd34d"/><rect x="-6.5" y="-74" width="4.3" height="57" fill="#f2bf2c"/>
+          <rect x="-6.5" y="-83" width="13" height="9" fill="#c7c7c7"/><rect x="-6.5" y="-95" width="13" height="12" rx="3" fill="#ff74a6"/>
+        </g></g>
+      </svg>
+      <figcaption id="drafting-caption"></figcaption>
+    </figure>
+  </div>
+  <div class="crewhost" id="crewhost"></div>
+  <table class="title-block" aria-live="polite">
+    <caption>On the workbench</caption>
+    <thead><tr><th scope="col">Item</th><th scope="col">Kind</th><th scope="col">Asked</th><th scope="col">Status</th></tr></thead>
+    <tbody id="queue"></tbody>
+  </table>
+  <p class="offline" id="offline" role="status"></p>
+</header>
+
+<main class="bench">
+  <section class="story"><h2 class="tape">His own story</h2>
+    <div class="diary" aria-live="polite">
+      <p class="chapter" id="stChapter">…</p>
+      <h3>What he wants to do</h3><ul id="stWants"></ul>
+      <h3>Lately, on his own</h3><ul id="stRecent"></ul>
+      <p class="small">His plans come from what you teach him and make together; he acts on them when the room is quiet, and what you say can change them.</p>
+    </div>
+  </section>
+  <section class="art" id="artWall" hidden><h2 class="tape">His art wall</h2><div class="frames" id="frames"></div></section>
+  <section class="book"><h2 class="tape">His activity book</h2>
+    <div class="diary abook" id="abook" aria-live="polite"><p class="small">Loading…</p></div>
+  </section>
+  <section class="shelf"><h2 class="tape">His shelf</h2><div class="pegboard" id="props"></div></section>
+  <section class="moves"><h2 class="tape">Moves he knows</h2><div class="cards" id="moves"></div></section>
+  <section class="notes"><h2 class="tape">Things he remembers about you</h2><div class="stickies" id="facts"></div></section>
+  <section class="phrases"><h2 class="tape">Your phrases</h2><div class="notebook"><ul id="phrases"></ul></div></section>
+  <section class="scrap"><h2 class="tape">Scrapbook</h2><div class="photos" id="scrap"></div></section>
+  <section class="scamacc"><h2 class="tape">Scam checker: how good is it?</h2>
+    <div class="card demo-card" id="scamAcc"><p class="why">No accuracy run yet.</p></div>
+  </section>
+  <section class="demo"><h2 class="tape">For the demo</h2>
+    <div class="card demo-card">
+      <p class="name">Save him as he is now, and put him back between demos</p>
+      <p class="why" id="demoInfo">Checking for a saved demo…</p>
+      <div class="demo-row"><button type="button" id="demoSave">Save as the demo</button><button type="button" id="demoReset" class="ghost">Reset to the demo</button><button type="button" id="demoZero" class="ghost">Day zero</button></div>
+      <p class="small" id="demoMsg" role="status"></p>
+    </div>
+    <div class="card demo-card">
+      <p class="name">What he learned today</p>
+      <p class="why" id="revInfo">Looking back…</p>
+      <div class="demo-row"><button type="button" id="revGo">Review the day</button></div>
+      <p class="small" id="revMsg" role="status"></p>
+    </div>
+    <div class="card demo-card">
+      <p class="name">Cloud boost</p>
+      <p class="why" id="boostInfo">Checking…</p>
+      <div class="demo-row"><button type="button" id="boostGo" disabled>Turn the cloud boost on</button></div>
+      <p class="small" id="boostMsg" role="status"></p>
+    </div>
+  </section>
+</main>
+
+<script>
+  // Zero Day mode is switched on the stage and remembered per browser; the workshop follows it (live, across tabs)
+  (function () {
+    const apply = () => { let m = null; try { m = localStorage.getItem("mochi.mode"); } catch (_) { /* private mode */ } document.documentElement.dataset.mode = m === "zeroday" ? "zeroday" : "normal"; };
+    apply(); addEventListener("storage", (e) => { if (e.key === "mochi.mode") apply(); });
+  })();
+</script>
+<script src="/bench.js"></script>
+<script>Crew.mount(document.getElementById("crewhost"), { big: true, socket: true });   /* Kit writes it, Pip tests it (Nov 3) */</script>
+<script>
+  /* For the demo (Nov 3): save this moment as data\mochi.demo.sqlite; put it back with a second tap. */
+  (function () {
+    const info = document.getElementById("demoInfo"), msg = document.getElementById("demoMsg"), save = document.getElementById("demoSave"), reset = document.getElementById("demoReset");
+    // shared (a tunnel): the reset and snapshot buttons only work on Binoy's computer, so they aren't shown
+    fetch("/api/whoami").then((r) => r.json()).then((w) => { if (w && w.public) document.querySelector("section.demo").hidden = true; }).catch(() => {});
+    const when = (iso) => { const d = new Date(iso); return d.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" }); };
+    async function paint() {
+      try {
+        const r = await (await fetch("/api/demo-snapshot")).json();
+        info.textContent = r.exists ? `Saved ${when(r.savedAt)}${r.props != null ? `: ${r.props} prop${r.props === 1 ? "" : "s"} on his shelf, ${r.moves} move${r.moves === 1 ? "" : "s"}` : ""}.` : "No demo saved yet. Make the props, teach the moves and the handshake, then save.";
+        reset.disabled = !r.exists;
+      } catch (_) { info.textContent = "Can't reach Mochi's server."; }
+    }
+    save.onclick = async () => {
+      save.disabled = true; msg.textContent = "Saving…";
+      try { const r = await (await fetch("/api/demo-snapshot", { method: "POST" })).json(); msg.textContent = r.ok ? "Saved. The one before is kept beside it, just in case." : `Couldn't save: ${r.error}`; }
+      catch (_) { msg.textContent = "Couldn't reach the server."; }
+      save.disabled = false; paint();
+    };
+    const zero = document.getElementById("demoZero"); let zeroAt = 0;
+    zero.onclick = async () => {   // Day Zero: he knows nothing (two taps; save the demo first!)
+      if (Date.now() - zeroAt > 4000 || Date.now() - zeroAt < 450) { if (Date.now() - zeroAt < 450) return; zeroAt = Date.now(); zero.textContent = "Tap again: he forgets everything"; zero.classList.add("ask"); setTimeout(() => { if (Date.now() - zeroAt >= 4000) { zero.textContent = "Day zero"; zero.classList.remove("ask"); } }, 4100); return; }
+      zeroAt = 0; zero.textContent = "Day zero"; zero.classList.remove("ask"); msg.textContent = "Back to day zero…";
+      try { const r = await (await fetch("/api/reset-demo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ which: "zero" }) })).json(); msg.textContent = r.ok ? "Day zero: an empty shelf, no moves, nothing remembered. His page reloads by itself." : `Couldn't: ${r.error}`; }
+      catch (_) { msg.textContent = "Couldn't reach the server."; }
+    };
+    // the day's review: what he made, what the blind check doubted, what to pattern next (filed to 8090 when connected)
+    const revInfo = document.getElementById("revInfo"), revMsg = document.getElementById("revMsg"), revGo = document.getElementById("revGo");
+    const revText = (r) => `Last ${r.hours} h: ${r.made} thing${r.made === 1 ? "" : "s"} made (${r.matched} confirmed, ${r.unsure.length} unsure), ${r.moves} move${r.moves === 1 ? "" : "s"}${r.taught ? ` (${r.taught} taught by hand)` : ""}, ${r.fixes} fix${r.fixes === 1 ? "" : "es"} asked${r.avgSeconds ? `, ~${r.avgSeconds} s a prop` : ""}${r.onOwn ? `; on his own: ${r.onOwn} thing${r.onOwn === 1 ? "" : "s"}${r.wantsDone ? `, ${r.wantsDone} plan${r.wantsDone === 1 ? "" : "s"} done` : ""}` : ""}.${r.nextPatterns.length ? ` Asked more than once, no pattern yet: ${r.nextPatterns.map((n) => n.request).join(", ")}.` : ""}`;
+    fetch("/api/review").then((r) => r.json()).then((r) => { revInfo.textContent = revText(r); }).catch(() => { revInfo.textContent = "Can't reach Mochi's server."; });
+    revGo.onclick = async () => {
+      revGo.disabled = true; revMsg.textContent = "Looking back…";
+      try { const r = await (await fetch("/api/review", { method: "POST" })).json(); revInfo.textContent = revText(r); revMsg.textContent = r.filed && r.filed.ok ? "Filed to 8090 as a feedback item, and in his scrapbook." : r.filed && r.filed.why === "off" ? "In his scrapbook. (8090 isn't connected: add its key to data\\keys.json to file it there too.)" : `In his scrapbook; 8090 said: ${r.filed && r.filed.why}.`; }
+      catch (_) { revMsg.textContent = "Couldn't reach the server."; }
+      revGo.disabled = false;
+    };
+    let askAt = 0;
+    reset.onclick = async () => {
+      if (Date.now() - askAt > 4000 || Date.now() - askAt < 450) { if (Date.now() - askAt < 450) return; askAt = Date.now(); reset.textContent = "Tap again to reset"; reset.classList.add("ask"); setTimeout(() => { if (Date.now() - askAt >= 4000) { reset.textContent = "Reset to the demo"; reset.classList.remove("ask"); } }, 4100); return; }
+      askAt = 0; reset.textContent = "Reset to the demo"; reset.classList.remove("ask"); msg.textContent = "Putting him back…";
+      try { const r = await (await fetch("/api/reset-demo", { method: "POST" })).json(); msg.textContent = r.ok ? "Done. Reload his page to see him as he was." : `Couldn't reset: ${r.error}`; }
+      catch (_) { msg.textContent = "Couldn't reach the server."; }
+    };
+    paint();
+    // the cloud boost (Nov 7, the MLH Gemini track): off, everything is made on this computer; on, Gemini looks over
+    // each new prop and writes when the writer here can't. His badge says which cloud models are on and what for.
+    const bInfo = document.getElementById("boostInfo"), bGo = document.getElementById("boostGo"), bMsg = document.getElementById("boostMsg");
+    let boost = null;
+    const who = (l) => l.map((c) => `${c.name} (${c.roles})`).join(", ");
+    function paintBoost(b) {
+      boost = b;
+      const here = [b.local.replace(/^.*\//, "").replace(/^gemma.*/i, "Gemma"), ...b.here.map((c) => c.name)].join(" and ");
+      if (!b.cloud.length) { bInfo.textContent = `Everything is made on this computer, by ${here}. No cloud models are set up (a Gemini key in data\\keys.json adds one).`; bGo.disabled = true; bGo.textContent = "Turn the cloud boost on"; return; }
+      const ready = b.cloud.filter((c) => c.state === "ready" || /^resting/.test(c.state)), down = b.cloud.filter((c) => /^off: (?!cloud)/.test(c.state));
+      bInfo.textContent = b.on
+        ? `On: ${who(ready.length ? ready : b.cloud)}. When a new prop needs a second look, its pictures go to the cloud; his badge says so while it's on.${down.length ? ` (${down.map((c) => `${c.name}: ${c.state.replace(/^off: /, "")}`).join(", ")})` : ""}`
+        : `Off: everything is made on this computer, by ${here}, and nothing leaves the house. On: ${who(b.cloud)}.`;
+      bGo.disabled = false; bGo.textContent = b.on ? "Turn the cloud boost off" : "Turn the cloud boost on";
+    }
+    fetch("/api/cloud-boost").then((r) => r.json()).then(paintBoost).catch(() => { bInfo.textContent = "Can't reach Mochi's server."; });
+    bGo.onclick = async () => {
+      bGo.disabled = true;
+      try { const r = await (await fetch("/api/cloud-boost", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ on: !(boost && boost.on) }) })).json(); if (r.error) throw new Error(r.error); paintBoost(r); bMsg.textContent = r.on ? "Cloud boost on." : "Cloud boost off: nothing leaves this computer."; }
+      catch (e) { bMsg.textContent = `Couldn't: ${e.message}`; bGo.disabled = false; }
+    };
+  })();
+</script>
+<script>
+  /* Read-only view of /api/room, refreshed every 5 s. The drawing board drafts whatever is first on the workbench. */
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const when = (sqlUtc) => { const d = new Date(String(sqlUtc || "").replace(" ", "T") + "Z"); return isNaN(d) ? "" : d.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
+  const shortDay = (sqlUtc) => { const d = new Date(String(sqlUtc || "").replace(" ", "T") + "Z"); return isNaN(d) ? "" : d.toLocaleDateString([], { month: "short", day: "numeric" }); };
+  const day = (iso) => { const d = new Date(iso + "T12:00:00"); return isNaN(d) ? iso : d.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" }); };
+  const tilt = (i, amp = 2.4) => (((i * 47) % 9) - 4) / 4 * amp;   // a steady, hand-placed wobble per item
+
+  /* ---------- drawings: construction guides, then the lines, then dimensions and notes ---------- */
+  const circle = (cx, cy, r) => `M${cx + r} ${cy} A${r} ${r} 0 1 1 ${cx - r} ${cy} A${r} ${r} 0 1 1 ${cx + r} ${cy}`;
+  const ellipse = (cx, cy, rx, ry) => `M${cx - rx} ${cy} A${rx} ${ry} 0 1 1 ${cx + rx} ${cy} A${rx} ${ry} 0 1 1 ${cx - rx} ${cy}`;
+  const DRAWINGS = {
+    canopy: { guides: ["M60 150 H360", "M210 26 V286", "M90 150 A120 120 0 0 1 330 150"],
+      lines: ["M90 150 A120 108 0 0 1 330 150", "M90 150 Q120 134 150 150 Q180 134 210 150 Q240 134 270 150 Q300 134 330 150",
+        "M210 42 Q168 84 150 150", "M210 42 Q252 84 270 150", "M210 42 V150", "M210 42 V26", "M210 150 V250", "M210 250 Q210 274 191 274 Q174 274 174 258"],
+      dims: ["M90 178 H330", "M352 42 V274"],
+      notes: [[176, 196, "fits one sheep, plus you"], [360, 162, "1.7"], [232, 236, "J handle"]] },
+    hat: { guides: ["M70 240 H350", "M210 40 V256"],
+      lines: ["M110 205 Q110 190 125 190 H295 Q310 190 310 205 V225 Q310 240 295 240 H125 Q110 240 110 225 Z", "M128 190 C150 112 232 50 318 92", "M292 190 C290 150 298 122 322 106",
+        circle(330, 104, 16), "M132 216 q6 -6 12 0", "M172 220 q6 -6 12 0", "M212 216 q6 -6 12 0", "M252 220 q6 -6 12 0"],
+      dims: ["M110 266 H310", "M346 104 L384 66"],
+      notes: [[150, 286, "fits one fluffy head"], [330, 58, "pom-pom"]] },
+    launcher: { guides: ["M48 160 H392", "M150 120 V270"],
+      lines: ["M90 130 H300 Q312 130 312 142 V178 Q312 190 300 190 H90 Q78 190 78 178 V142 Q78 130 90 130 Z", "M300 124 H324 V196 H300 Z",
+        "M150 190 L140 250 Q138 262 151 262 H172 Q183 262 185 250 L192 190", "M192 206 Q216 206 216 190", "M120 130 V190", "M246 130 V190",
+        "M338 140 L362 118", "M342 160 L376 160", "M338 180 L362 202", circle(382, 108, 3.5), circle(392, 162, 3.5), circle(378, 214, 3.5)],
+      dims: ["M78 106 H324"],
+      notes: [[128, 96, "shoots confetti only"], [230, 230, "soft trigger"]] },
+    mystery: { guides: ["M150 230 L190 196 L290 196", "M190 196 V96"],
+      lines: ["M150 130 H250 V230 H150 Z", "M150 130 L190 96 H290 L250 130", "M250 230 L290 196 V96",
+        "M190 166 Q190 150 203 150 Q218 150 218 163 Q218 174 203 178 V190", circle(203, 203, 2.2)],
+      dims: ["M150 252 H250"],
+      notes: [[150, 274, "size: still deciding"], [300, 120, "idea in progress"]] },
+    mochi: { guides: [ellipse(210, 175, 98, 84), "M210 70 V268"],
+      lines: ["M130 190 Q118 160 145 150 Q150 120 180 125 Q195 100 225 110 Q255 100 268 128 Q298 128 295 158 Q316 175 295 196 Q300 226 268 229 Q250 250 220 241 Q190 256 170 236 Q135 239 140 210 Q118 205 130 190 Z",
+        ellipse(210, 177, 46, 39), "M166 167 Q142 160 133 177 Q147 186 167 180", "M254 167 Q278 160 287 177 Q273 186 253 180",
+        ellipse(193, 174, 5, 6), ellipse(227, 174, 5, 6), "M203 192 Q210 198 217 192", "M186 240 V260", "M234 240 V260"],
+      dims: ["M332 100 V260"],
+      notes: [[338, 186, "small"], [70, 92, "fleece: extremely fluffy"]] },
+  };
+  const DRAWING_FOR = [[/umbrella|parasol|canopy/, "canopy"], [/hat|cap|crown|helmet|beanie|ears|bow\b|wig|hood/, "hat"],
+    [/launcher|blaster|bazooka|cannon|popper|rocket|gun|sprayer|pistol/, "launcher"]];
+  const SVGNS = "http://www.w3.org/2000/svg";
+  let jobs = [], drawIndex = 0;
+
+  function el(tag, attrs) { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  function stroke(path, ms, pencil) {
+    return new Promise((done) => {
+      const L = path.getTotalLength();
+      path.style.strokeDasharray = `${L} ${L}`; path.style.strokeDashoffset = L;
+      const t0 = performance.now();
+      const step = (t) => {
+        const k = Math.min(1, (t - t0) / ms), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+        path.style.strokeDashoffset = L * (1 - e);
+        if (pencil) { const p = path.getPointAtLength(L * e); pencil.setAttribute("transform", `translate(${p.x} ${p.y})`); }
+        if (k < 1) requestAnimationFrame(step); else { path.style.strokeDasharray = ""; done(); }
+      };
+      requestAnimationFrame(step);
+    });
+  }
+  function nextSubject() {
+    const open = jobs.filter((j) => j.status === "queued" || j.status === "working" || j.status === "someday");
+    if (!open.length) return { key: "mochi", caption: "Self-portrait, while the bench is empty" };
+    const j = open[drawIndex++ % open.length], name = j.request.split(":")[0].trim(), low = j.request.toLowerCase();
+    const hit = DRAWING_FOR.find(([re]) => re.test(low));
+    return { key: j.kind === "move" ? "mochi" : hit ? hit[1] : "mystery", caption: `Drafting: ${name}${j.kind === "move" ? " (a new move)" : ""}` };
+  }
+  async function draftLoop() {
+    const art = $("art"), pencil = $("pencil");
+    for (;;) {
+      const subject = nextSubject(), d = DRAWINGS[subject.key];
+      $("drafting-caption").textContent = subject.caption;
+      art.innerHTML = ""; art.classList.remove("out");
+      const guides = d.guides.map((p) => art.appendChild(el("path", { d: p, class: "guide" })));
+      const lines = d.lines.map((p) => art.appendChild(el("path", { d: p, class: "line" })));
+      const dims = d.dims.map((p) => art.appendChild(el("path", { d: p, class: "dim" })));
+      const notes = d.notes.map(([x, y, t]) => { const n = art.appendChild(el("text", { x, y })); n.textContent = t; return n; });
+      if (reduce) { notes.forEach((n) => n.classList.add("on")); dims.forEach((m) => m.classList.add("done")); await wait(9000); continue; }
+      [...guides, ...lines, ...dims].forEach((p) => { const L = p.getTotalLength(); p.style.strokeDasharray = `${L} ${L}`; p.style.strokeDashoffset = L; });
+      pencil.setAttribute("opacity", "1");
+      for (const g of guides) await stroke(g, 520, pencil);
+      for (const l of lines) await stroke(l, Math.min(1500, 260 + l.getTotalLength() * 2.4), pencil);
+      for (const m of dims) { await stroke(m, 420, pencil); m.classList.add("done"); }
+      pencil.setAttribute("opacity", "0");
+      for (const n of notes) { n.classList.add("on"); await wait(260); }
+      await wait(4200);
+      art.classList.add("out"); await wait(800);
+    }
+  }
+
+  /* ---------- the bench ---------- */
+  const STATUS = { queued: "waiting", working: "on the bench", done: "done", failed: "didn't work", someday: "someday" };
+  function render(r) {
+    jobs = r.queue;
+    const q = r.queue.filter((j) => j.status !== "cancelled");
+    $("queue").innerHTML = q.length ? q.slice(0, 6).map((j) => `<tr><td class="item">${esc(j.request.split(":")[0])}</td><td>${j.kind === "move" ? "move" : "prop"}${j.source === "mochi" ? ", his idea" : ""}</td>
+        <td>${esc(when(j.created_at))}</td><td><span class="stamp ${esc(j.status)}" title="${esc(j.error || "")}">${esc(STATUS[j.status] || j.status)}</span>${j.status === "done" && j.ms ? ` <small>${Math.round(j.ms / 1000)} s</small>` : ""}</td></tr>`).join("")
+        + (q.length > 6 ? `<tr class="empty"><td colspan="4">and ${q.length - 6} more</td></tr>` : "")
+      : `<tr class="empty"><td colspan="4">Nothing on the bench. Ask him to make you something.</td></tr>`;
+    $("props").innerHTML = r.props.length ? r.props.map((p, i) => `<article class="tag" style="transform:rotate(${tilt(i)}deg)"><p class="name">${esc(p.name)}</p>${p.thumb ? `<img class="pic" src="${esc(p.thumb)}" alt="${esc(p.name)}, front and three-quarter views" loading="lazy">` : ""}<p class="why">${esc(p.origin)}</p>${p.madeBy ? `<p class="small made-by">written by ${esc(p.madeBy.wrote.join(" and "))}${p.madeBy.checked.length ? `, looked over by ${esc(p.madeBy.checked.join(" and "))}` : ""}${p.madeBy.practised ? `; practised on his own${p.madeBy.was ? ` (it used to look like ${esc(p.madeBy.was)})` : ""}` : ""}</p>` : ""}
+        <div class="small">made ${esc(shortDay(p.created_at))}${p.uses ? `<br>used ${p.uses} time${p.uses > 1 ? "s" : ""}` : ""}</div></article>`).join("")
+      : `<article class="tag blank" style="transform:rotate(-2deg)"><p class="name">Empty hook</p><p class="why">Nothing on the shelf yet. Ask him to make you something and it hangs here once it's done.</p></article>`;
+    $("moves").innerHTML = r.moves.length ? r.moves.map((m) => `<article class="card"><p class="name">${esc(m.name)}</p><p class="why">${esc(m.origin)}</p>
+        <div class="skill">skill <span class="meter"><i style="width:${Math.round(m.skill * 100)}%"></i></span> ${Math.round(m.skill * 100)}%</div></article>`).join("")
+      : `<article class="card"><p class="name">His own moves</p><p class="why">Waving, hopping, giggling, showing off Mimi. New moves you teach him by posing will get a card here.</p></article>`;
+    $("facts").innerHTML = r.facts.length ? r.facts.map((f, i) => `<article class="sticky${f.when_date ? " dated" : ""}" style="transform:rotate(${tilt(i + 3, 3)}deg)">
+        <p class="text">${esc(f.text)}</p>${f.when_date ? `<div class="when">${esc(day(f.when_date))}</div>` : ""}<div class="noted">noted ${esc(when(f.created_at))}</div></article>`).join("")
+      : `<article class="sticky" style="transform:rotate(-2deg)"><p class="text">Nothing yet. Tell him about your day and he'll jot it down here.</p></article>`;
+    $("phrases").innerHTML = r.phrases.length ? r.phrases.map((p) => `<li><span class="p">“${esc(p.phrase)}”</span> ${p.meaning ? esc(p.meaning) : `<span class="unsure">he's not sure what it means yet</span>`}${p.action ? `, and he ${esc(p.action)}` : ""}</li>`).join("")
+      : `<li>None yet. Teach him one: “when I say pancake day, do a happy dance”.</li>`;
+    $("scrap").innerHTML = r.scrapbook.length ? r.scrapbook.slice(0, 12).map((s, i) => { const m = /^([A-Z][a-z]{2} \d{1,2}):\s*(.*)$/.exec(s.entry);
+        return `<article class="photo" style="transform:rotate(${tilt(i + 1, 2.6)}deg)"><div class="pic" aria-hidden="true">${/made|umbrella|hat|prop/.test(s.entry) ? "✂" : /taught|move|twirl/.test(s.entry) ? "♪" : "♡"}</div>
+          <div class="date">${esc(m ? m[1] : "")}</div><p class="what">${esc(m ? m[2] : s.entry)}</p></article>`; }).join("")
+      : `<p class="empty-note">Things he makes and learns with you end up here.</p>`;
+  }
+  let last = "";
+  const agoS = (iso) => { const s = (Date.now() - Date.parse(iso)) / 1000; return s < 90 ? "just now" : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} d ago`; };
+  let lastStory = "";
+  async function loadStory() {
+    let txt = ""; try { txt = await (await fetch("/api/story", { cache: "no-store" })).text(); } catch (_) { return; }
+    if (txt === lastStory) return; lastStory = txt; const st = JSON.parse(txt);
+    $("stChapter").textContent = st.chapter && st.chapter.text ? st.chapter.text : "Nothing much yet.";
+    $("stWants").innerHTML = (st.wants || []).length ? st.wants.map((w) => `<li><span>${esc(w.title || w.text)}${w.scene ? ` <span class="why">scene ${Math.min(w.scene[0], w.scene[1])} of ${w.scene[1]}</span>` : ""}</span>${w.kind === "practise" || w.kind === "save" ? `<span class="bar"><i style="width:${Math.round((w.progress || 0) * 100)}%"></i></span>` : ""}${w.from === "you" ? `<span class="you">your idea</span>` : ""}<span class="why">${esc(w.why || "")}</span></li>`).join("") : `<li><span class="why">no plans yet</span></li>`;
+    const rec = [...(st.done || []).map((d) => ({ at: d.at, text: `did it: ${d.text}`, kind: "done" })), ...(st.recent || [])].sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).slice(0, 6);
+    $("stRecent").innerHTML = rec.length ? rec.map((l) => `<li class="${l.kind === "done" ? "done" : ""}"><span>${esc(l.text)}</span><span class="ago">${agoS(l.at)}</span></li>`).join("") : `<li><span class="why">nothing yet</span></li>`;
+  }
+  let lastArt = "";
+  async function loadArt() {
+    let txt = ""; try { txt = await (await fetch("/api/paintings", { cache: "no-store" })).text(); } catch (_) { return; }
+    if (txt === lastArt) return; lastArt = txt; const list = JSON.parse(txt);
+    $("artWall").hidden = !list.length;
+    $("frames").innerHTML = list.slice(0, 12).map((p, i) => `<figure class="frame" style="transform:rotate(${tilt(i + 5, 1.6)}deg)"><img src="/paintings/${encodeURIComponent(p.file)}" alt="${esc(p.title)}" loading="lazy"><figcaption>${esc(p.title)}<small>${esc(agoS(p.at))}</small></figcaption></figure>`).join("");
+  }
+  let lastBook = "";
+  async function loadBook() {   // what he can do, ticked when he's done it; the ones he made up on the spot at the end
+    let txt = ""; try { txt = await (await fetch("/api/book", { cache: "no-store" })).text(); } catch (_) { return; }
+    if (txt === lastBook) return; lastBook = txt; const b = JSON.parse(txt);
+    const item = (x) => `<li class="${x.times ? "did" : ""}"><span>${esc(x.name)}</span>${x.times ? `<span class="n">×${x.times}</span>` : ""}${x.need ? `<span class="need">wants a ${esc(x.need.replace(/^(?:a|an) /, ""))}</span>` : ""}</li>`;
+    const cats = b.categories.map((c) => `<div class="cat"><h3>${esc(c.label)}</h3><ul>${c.items.map(item).join("")}</ul></div>`);
+    if (b.learned.length) cats.push(`<div class="cat"><h3>Made up on the spot</h3><ul>${b.learned.map(item).join("")}</ul></div>`);
+    $("abook").innerHTML = cats.join("") + `<p class="small">Ask him for any of these, or anything else: he'll make it up from what he's got.</p>`;
+  }
+  async function load() {
+    loadStory(); loadArt(); loadBook();
+    try {
+      const txt = await (await fetch("/api/room", { cache: "no-store" })).text();
+      $("offline").classList.remove("on");
+      if (txt !== last) { last = txt; render(JSON.parse(txt)); }
+    } catch (e) {
+      $("offline").textContent = "Can't reach Mochi's server. Is his window still open?"; $("offline").classList.add("on");
+    }
+  }
+  if (!reduce) {   // a few wool tufts drifting up past the bench
+    const f = $("fluff");
+    for (let i = 0; i < 9; i++) {
+      const t = document.createElement("i"), s = 6 + (i * 7) % 12;
+      t.style.cssText = `left:${(i * 11.3 + 4) % 100}%;width:${s}px;height:${s}px;--dx:${((i % 3) - 1) * 60}px;animation-duration:${22 + (i * 5) % 14}s;animation-delay:${-i * 3.1}s`;
+      f.appendChild(t);
+    }
+  }
+  load().then(draftLoop); setInterval(load, 5000);
+  // the scam checker's accuracy (the last run on the M5): rules alone, the model alone, both together
+  (async function scamAcc() {
+    let r = null; try { r = await (await fetch("/api/scam-accuracy", { cache: "no-store" })).json(); } catch (_) { return; }
+    const box = document.getElementById("scamAcc"); if (!r || !r.sets || !r.sets.length) return;
+    const pc = (x) => (x == null ? "–" : `${Math.round(x * 100)}%`);
+    box.innerHTML = r.sets.map((S) => `<p class="name">${esc(S.name)}: ${S.rules.n} messages</p>
+      <table><thead><tr><th>Who checked</th><th>Caught (recall)</th><th>Right when it said scam (precision)</th><th>Normal ones called scams</th></tr></thead><tbody>
+      ${S.baseline ? `<tr><td>A plain word-counting classifier (baseline)</td><td class="n">${pc(S.baseline.recall)}</td><td class="n">${pc(S.baseline.precision)}</td><td class="n">${S.baseline.fp}</td></tr>` : ""}
+      <tr><td>Mochi's rules</td><td class="n">${pc(S.rules.recall)}</td><td class="n">${pc(S.rules.precision)}</td><td class="n">${S.rules.fp}</td></tr>
+      ${S.model.n ? `<tr><td>${esc(S.reader || "the model")}</td><td class="n">${pc(S.model.recall)}</td><td class="n">${pc(S.model.precision)}</td><td class="n">${S.model.fp}</td></tr>` : ""}
+      <tr><td><b>Both together</b></td><td class="n"><b>${pc(S.both.recall)}</b></td><td class="n"><b>${pc(S.both.precision)}</b></td><td class="n"><b>${S.both.fp}</b></td></tr></tbody></table>
+      ${S.calib ? `<p class="small">Honest confidence: ${Object.entries(S.calib).map(([k, v]) => `when he says "${esc(k)}" he's right ${v.right} of ${v.n} (${pc(v.right / Math.max(1, v.n))})`).join("; ")}.</p>` : ""}
+      ${S.byWriter && Object.keys(S.byWriter).length > 1 ? `<p class="small">By who wrote the messages: ${Object.entries(S.byWriter).map(([k, v]) => `${esc({ "nemotron-brev": "Nemotron", "gemini-3.6": "Gemini", gemini: "Gemini", local: "Gemma" }[k] || k)}-written: caught ${pc(v.recall)}, ${v.fp} false alarm${v.fp === 1 ? "" : "s"}`).join("; ")}.</p>` : ""}
+      <p class="small">Typical time per message: ${(S.median / 1000).toFixed(1)} s. ${S.notSure ? `${S.notSure} times the two disagreed and he said "not sure, be careful".` : ""}</p>`).join("") +
+      `<p class="small">Made-up messages only (no real ones). Checked ${esc(new Date(r.at).toLocaleString())}.</p>`;
+  })();
+</script>
+</body>
+</html>

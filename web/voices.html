@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Voices · Tamamochi</title>
+<style>
+  /* Fonts are bundled (web/fonts, SIL OFL 1.1) because the demo network has no internet. */
+  @font-face { font-family: "Architects Daughter"; src: url("/fonts/architects-daughter-latin-400-normal.woff2") format("woff2"); font-display: swap; }
+  @font-face { font-family: "Atkinson Hyperlegible"; src: url("/fonts/atkinson-hyperlegible-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Atkinson Hyperlegible"; src: url("/fonts/atkinson-hyperlegible-latin-700-normal.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+  :root {
+    --walnut: #5b3b25; --walnut-dark: #3f2918; --paper: #fbf8f1; --graphite: #2a2622; --soft: #6f655b; --rule: #e4dccd;
+    --mochi: #d9a441; --mimi: #ff74a6; --cocoa: #2a9d8f; --ink: #fff4e2;
+    --hand: "Architects Daughter", "Comic Sans MS", "Segoe Print", cursive;
+    --read: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--walnut-dark); }
+  body { margin: 0; color: var(--graphite); font: 16px/1.5 var(--read); min-height: 100vh;
+    background: repeating-linear-gradient(178deg, rgba(0,0,0,.05) 0 3px, transparent 3px 11px), linear-gradient(180deg, #6a452b, var(--walnut) 40%, #4c311e); }
+  :focus-visible { outline: 3px solid var(--mimi); outline-offset: 3px; border-radius: 4px; }
+  main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 48px; }
+  header { color: var(--ink); display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 22px; margin-bottom: 18px; }
+  h1 { font: 400 clamp(36px, 6vw, 58px)/1 var(--hand); margin: 0; }
+  header a { font: 400 18px var(--hand); color: var(--ink); }
+  #state { width: 100%; margin: 6px 0 0; font-size: 16px; color: #f3e3c8; max-width: 70ch; }
+  #state code { background: rgba(0,0,0,.25); padding: 1px 6px; border-radius: 4px; }
+  .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+  @media (max-width: 900px) { .cards { grid-template-columns: 1fr; } }
+  .card { background: var(--paper); border-radius: 6px; padding: 18px 18px 16px; box-shadow: 0 10px 24px rgba(0,0,0,.35); border-top: 8px solid var(--c); }
+  .card h2 { font: 400 30px/1 var(--hand); margin: 0 0 2px; }
+  .card .who { color: var(--soft); margin: 0 0 14px; font-size: 15px; }
+  label { display: block; font-weight: 700; font-size: 14px; margin: 12px 0 4px; }
+  label output { font-weight: 400; color: var(--soft); margin-left: 6px; }
+  select, textarea, input[type=text] { width: 100%; font: inherit; padding: 8px 10px; border: 1.5px solid var(--rule); border-radius: 6px; background: #fff; color: var(--graphite); }
+  textarea { resize: vertical; min-height: 64px; }
+  input[type=range] { width: 100%; accent-color: var(--c); }
+  .row { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; align-items: center; }
+  button { font: 700 15px var(--read); padding: 9px 16px; border-radius: 999px; border: 2px solid var(--c, var(--graphite)); background: #fff; color: var(--graphite); cursor: pointer; }
+  button.go { background: var(--c, var(--graphite)); color: #fff; }
+  button:disabled { opacity: .45; cursor: default; }
+  .note { font-size: 14px; color: var(--soft); min-height: 1.5em; margin: 8px 0 0; }
+  .mochi { --c: var(--mochi); } .mimi { --c: var(--mimi); } .cocoa { --c: var(--cocoa); }
+  .acting { margin-top: 22px; background: var(--paper); border-radius: 6px; padding: 18px; box-shadow: 0 10px 24px rgba(0,0,0,.35); --c: var(--graphite); }
+  .acting h2 { font: 400 28px/1 var(--hand); margin: 0 0 6px; }
+  .acting p { margin: 0 0 10px; max-width: 75ch; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
+  .tags button { font: 400 14px var(--read); padding: 4px 10px; border-width: 1.5px; }
+  .acting .row select { width: auto; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Voices</h1>
+    <a href="/">Back to Mochi</a> <a href="/room">The workshop</a>
+    <p id="state" role="status">Checking the voices…</p>
+  </header>
+
+  <section class="cards" id="cards"></section>
+
+  <section class="acting" aria-labelledby="act-h">
+    <h2 id="act-h">Acting</h2>
+    <p>Lines act on their own: a sad sentence comes out slower, softer and lower; an excited one quicker and brighter;
+      <em>*whispers*</em> whispers the rest of its sentence; <em>(an aside)</em> is said softly; a trailing “…” leaves a pause;
+      a SHOUTED word lifts its sentence. Tags set it exactly, mid-sentence if you like.</p>
+    <textarea id="actText" aria-label="A line to act out">{whisper}Psst… come closer.{/whisper} {loud}BOO!{/loud} {pause}Hehe, got you! *sniffles* Oh no, I'm sorry, did I scare you? {slow}I didn't mean to.{/slow}</textarea>
+    <ul class="tags" id="tags" aria-label="Put a tag in"></ul>
+    <div class="row"><label for="actWho" style="margin:0">Said by</label>
+      <select id="actWho"><option value="mochi">Mochi</option><option value="mimi">Mimi</option><option value="cocoa">Cocoa</option></select>
+      <button class="go" id="actPlay">Play it</button></div>
+    <p class="note" id="actNote"></p>
+  </section>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const PEOPLE = [
+    ["mochi", "Mochi", "the round fluffy one", "Hi! I'm Mochi. Do you want to play? Hehe!"],
+    ["mimi", "Mimi", "his girlfriend, with the pink bow", "Eep! Mochi, you're so silly. Come here, you~"],
+    ["cocoa", "Cocoa", "his best buddy, with the teal bandana", "Dude! Water balloon fight, right now. You're going down, bro!"],
+  ];
+  const TAGS = ["{whisper}", "{/whisper}", "{soft}", "{loud}", "{slow}", "{fast}", "{high}", "{low}", "{happy}", "{excited}", "{sad}", "{sorry}", "{worried}", "{scared}", "{cross}", "{sleepy}", "{shy}", "{pause}", "{rate=0.8}", "{vol=0.5}", "{pitch=+2}", "{/}"];
+  let info = null, playing = null;
+  const cards = {};
+
+  function play(blob, note) {
+    if (playing) { playing.pause(); URL.revokeObjectURL(playing.src); }
+    const a = playing = new Audio(URL.createObjectURL(blob));
+    a.onended = () => { if (note) note.textContent = ""; };
+    a.play().catch(() => { if (note) note.textContent = "Your browser wouldn't play it: tap Play again."; });
+  }
+  async function say(body, note) {
+    note.textContent = "Making it…";
+    try {
+      const t0 = performance.now(), r = await fetch("/api/voice/try", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      if (r.status === 200) { const b = await r.blob(); note.textContent = `Made in ${((performance.now() - t0) / 1000).toFixed(1)} s`; play(b, null); return; }
+      const j = await r.json().catch(() => ({}));
+      note.textContent = r.status === 429 ? "That's a lot of tries: wait a few seconds." : j.error ? `${j.error}.` : "That didn't work.";
+      refresh();
+    } catch (_) { note.textContent = "The server didn't answer."; }
+  }
+  const valueOf = (who) => { const c = cards[who]; return { voice: c.voice.value, pitch: +c.pitch.value, rate: +c.rate.value, vol: +c.vol.value }; };
+  const fmt = { pitch: (v) => `${v > 0 ? "+" : ""}${(+v).toFixed(1)} semitones`, rate: (v) => `${(+v).toFixed(2)}×`, vol: (v) => `${Math.round(v * 100)}%` };
+  function showKept(who) {
+    const c = cards[who], s = info && info.settings && info.settings[who], v = valueOf(who);
+    const same = s && s.voice === v.voice && Math.abs(s.pitch - v.pitch) < 0.01 && Math.abs(s.rate - v.rate) < 0.001 && Math.abs(s.vol - v.vol) < 0.001;
+    c.keep.disabled = !!same;
+    c.keep.textContent = same ? "Kept" : "Keep this";
+  }
+  function build() {
+    const root = $("cards");
+    for (const [who, name, about, line] of PEOPLE) {
+      const el = document.createElement("article"); el.className = `card ${who}`; el.setAttribute("aria-labelledby", `${who}-h`);
+      el.innerHTML = `<h2 id="${who}-h">${name}</h2><p class="who">${about}</p>
+        <label for="${who}-voice">Voice</label><select id="${who}-voice"></select>
+        <label for="${who}-pitch">Pitch <output id="${who}-pitch-o"></output></label><input type="range" id="${who}-pitch" min="-4" max="8" step="0.5">
+        <label for="${who}-rate">Pace <output id="${who}-rate-o"></output></label><input type="range" id="${who}-rate" min="0.8" max="1.3" step="0.02">
+        <label for="${who}-vol">Loudness <output id="${who}-vol-o"></output></label><input type="range" id="${who}-vol" min="0.5" max="1.5" step="0.05">
+        <label for="${who}-line">Line to try</label><textarea id="${who}-line" rows="2"></textarea>
+        <div class="row"><button class="go" id="${who}-play">Play</button><button id="${who}-keep">Keep this</button><button id="${who}-reset" title="Back to the voice it started with">Default</button></div>
+        <p class="note" id="${who}-note" role="status"></p>`;
+      root.appendChild(el);
+      const c = cards[who] = { voice: $(`${who}-voice`), pitch: $(`${who}-pitch`), rate: $(`${who}-rate`), vol: $(`${who}-vol`), line: $(`${who}-line`), keep: $(`${who}-keep`), note: $(`${who}-note`) };
+      c.line.value = line;
+      for (const k of ["pitch", "rate", "vol"]) c[k].addEventListener("input", () => { $(`${who}-${k}-o`).textContent = fmt[k](c[k].value); showKept(who); });
+      c.voice.addEventListener("change", () => showKept(who));
+      $(`${who}-play`).addEventListener("click", () => say({ text: c.line.value, who, voice: valueOf(who) }, c.note));
+      c.keep.addEventListener("click", () => save(who, valueOf(who)));
+      $(`${who}-reset`).addEventListener("click", () => save(who, null));
+    }
+    const tags = $("tags"), area = $("actText");
+    for (const t of TAGS) {
+      const li = document.createElement("li"), b = document.createElement("button"); b.type = "button"; b.textContent = t;
+      b.addEventListener("click", () => { const s = area.selectionStart, e = area.selectionEnd; area.setRangeText(t, s, e, "end"); area.focus(); });
+      li.appendChild(b); tags.appendChild(li);
+    }
+    $("actPlay").addEventListener("click", () => { const who = $("actWho").value; say({ text: area.value, who, voice: valueOf(who) }, $("actNote")); });
+  }
+  async function save(who, v) {
+    const c = cards[who];
+    try {
+      const r = await fetch("/api/voice/set", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ who, voice: v }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { c.note.textContent = r.status === 403 ? "Voices can only be changed on the Mochi computer itself." : j.error || "That didn't save."; return; }
+      info.settings = j.settings; fill(who, true);
+      c.note.textContent = v ? `Kept: ${(info.settings[who] || {}).voice}. Every line ${who === "mochi" ? "he" : who === "mimi" ? "she" : "he"} says now sounds like this.` : "Back to the voice it started with.";
+    } catch (_) { c.note.textContent = "The server didn't answer."; }
+  }
+  function fill(who, force = false) {
+    const c = cards[who], s = info.settings && info.settings[who];
+    if (!c.voice.options.length) for (const [id, label] of info.voices || []) { const o = document.createElement("option"); o.value = id; o.textContent = `${label} (${id})`; c.voice.appendChild(o); }
+    if (s && (force || !c.filled)) { c.voice.value = s.voice; c.pitch.value = s.pitch; c.rate.value = s.rate; c.vol.value = s.vol; c.filled = true; }
+    for (const k of ["pitch", "rate", "vol"]) $(`${who}-${k}-o`).textContent = fmt[k](c[k].value);
+    showKept(who);
+  }
+  function paintState() {
+    const k = info.kokoro, st = $("state");
+    const engine = info.engine === "local" ? "" : info.engine === "elevenlabs" ? " (keys.json says ElevenLabs only, so these voices aren't used)" : info.engine === "browser" ? " (keys.json says browser voices only, so these voices aren't used)" : info.elevenlabs === "ok" ? " ElevenLabs speaks first while it can; these voices take over when it can't." : "";
+    if (!k) st.textContent = "The voices made on this computer are switched off here.";
+    else if (k.state === "ready") st.textContent = `Kokoro is speaking on this computer's CPU${k.speed ? `, about ${k.speed}× faster than real time` : k.test ? `, a test line made in ${(k.test.ms / 1000).toFixed(2)} s` : ""}.${engine}`;
+    else if (k.state === "loading" || k.state === "idle") st.textContent = "Kokoro is getting ready (the first time, it fetches its voice model, about 325 MB)…";
+    else if (k.state === "missing") st.innerHTML = "Kokoro isn't installed yet. On the Mochi computer, in <code>C:\\mochi\\server</code>, run <code>npm install</code>. Until then Mochi uses the browser's voice.";
+    else if (k.state === "off") st.textContent = "Kokoro is switched off in keys.json.";
+    else st.textContent = `Kokoro didn't start: ${k.error || "something went wrong"}. It tries again in a few minutes.`;
+    const ready = k && k.state === "ready";
+    for (const b of document.querySelectorAll("button.go")) b.disabled = !ready;
+  }
+  let timer = 0;
+  async function refresh() {
+    clearTimeout(timer);
+    try { const r = await fetch("/api/voice/local"); if (r.ok) { info = await r.json(); for (const [who] of PEOPLE) fill(who); paintState(); } }
+    catch (_) { $("state").textContent = "The server didn't answer."; }
+    if (!info || !info.kokoro || info.kokoro.state !== "ready") timer = setTimeout(refresh, 3000);
+  }
+  build(); refresh();
+})();
+</script>
+</body>
+</html>

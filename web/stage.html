@@ -1,0 +1,1675 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tamamochi: born on day zero</title>
+<style>
+  :root { --card: #fff; --label: #1c1c1e; --label-3: #8e8e93; --bg: #f4efe6; --accent: #e8744f; --me: #ffe1d4; --line: transparent;
+          --shadow: 0 2px 10px rgba(0,0,0,.08); --shadow-pop: 0 6px 22px rgba(0,0,0,.14); --ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; --mono: var(--ui); }
+  @media (prefers-color-scheme: dark) { :root:not([data-mode="zeroday"]) { --card: #2c2c2e; --label: #f2f2f7; --label-3: #8e8e93; --bg: #17161a; --me: #4a2f25; } }
+  /* Zero Day: midnight, neon cyan / electric blue / violet, thin glowing outlines instead of soft shadows */
+  :root[data-mode="zeroday"] { --card: rgba(13, 17, 36, .86); --label: #e4e9ff; --label-3: #8d96cf; --bg: #05060d; --accent: #2fd8ff; --me: rgba(122, 76, 255, .2); --line: rgba(47, 216, 255, .35);
+          --shadow: 0 0 0 1px rgba(47, 216, 255, .28), 0 6px 24px rgba(61, 123, 255, .16); --shadow-pop: 0 0 0 1px rgba(155, 92, 255, .55), 0 8px 30px rgba(155, 92, 255, .28);
+          --mono: ui-monospace, "Cascadia Code", "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  /* his drawing is wider than a phone (it covers the window so he can roam), and a phone laid the page out as wide as
+     it and showed only part of it: zoomed in, his bookcase cut off (Nov 4). Clipped at the window's sides instead */
+  html, body { overflow-x: clip; max-width: 100%; }
+  body { margin: 0; font: 16px/1.4 var(--ui); background: var(--bg); color: var(--label); display: flex; flex-direction: column; overflow: hidden; transition: background-color .5s, color .5s; }
+  :root[data-mode="zeroday"] body {
+    background:
+      radial-gradient(60vw 50vh at 12% 8%, rgba(47, 216, 255, .13), transparent 70%),
+      radial-gradient(55vw 55vh at 92% 88%, rgba(155, 92, 255, .16), transparent 70%),
+      linear-gradient(rgba(61, 123, 255, .07) 1px, transparent 1px) 0 0 / 34px 34px,
+      linear-gradient(90deg, rgba(61, 123, 255, .07) 1px, transparent 1px) 0 0 / 34px 34px,
+      var(--bg); }
+  :root[data-mode="zeroday"] body::after { content: ""; position: fixed; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px); }
+  .sweep { position: fixed; left: 0; right: 0; top: -12vh; height: 12vh; pointer-events: none; z-index: 20; opacity: 0;
+           background: linear-gradient(180deg, transparent, rgba(47, 216, 255, .28) 60%, rgba(155, 92, 255, .5) 92%, transparent); }
+  .sweep.go { animation: sweep .55s cubic-bezier(.4, 0, .2, 1); }
+  @keyframes sweep { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: .2; transform: translateY(112vh); } }
+  /* the stage: Mochi large and centered; the host is absolute so the kit's carry/hop code still works */
+  .stage { position: relative; flex: 0 0 46vh; min-height: 300px; touch-action: none; }   /* presses here are taps, aims and pulls, never a scroll */
+  /* a phone with its keyboard up (Nov 4, Binoy: "the keyboard opened and it would hide mochi"): the page fits what's
+     left of the screen (--vvh), Mochi stays on top, smaller, and the chat gives up the room */
+  html.kb body { height: var(--vvh, 100%); }
+  html.kb .stage { flex-basis: var(--kbStage, 200px); min-height: 0; }
+  html.kb .stage .mochi { height: calc(var(--kbStage, 200px) - 12px); width: calc((var(--kbStage, 200px) - 12px) * 0.743); margin-left: calc((var(--kbStage, 200px) - 12px) * -0.3715); }
+  html.kb .tries, html.kb .growth, html.kb .shelf { display: none; }   /* (the shelf's chips sat on his bookcase and props: Nov 4) */
+  .stage .mochi { position: absolute; left: 50%; bottom: 8px; width: min(260px, 34vh, 50vw); height: min(350px, 46vh, 67.3vw); margin-left: calc(min(260px, 34vh, 50vw) / -2);   /* (a phone: a bit smaller, so the room around him fits: Nov 4) */ pointer-events: none; opacity: 0; transition: opacity .3s; z-index: 4; }   /* above the chat: he (and what he draws) can be put over it */
+  .mochi.on { opacity: 1; }
+  .mochi canvas { position: absolute; left: -22%; top: -18%; width: 144%; height: 124%; display: block; pointer-events: none; touch-action: none; }
+  #mochi canvas { left: -115%; width: 330%; }   /* matches data-pad-x="1.15": room at his sides for what he fires */
+  .aimhint { position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%) translateY(6px); padding: 5px 12px; border-radius: 999px; background: var(--card); box-shadow: var(--shadow);
+             font-size: 12.5px; color: var(--label-2, var(--label)); white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .2s, transform .25s; z-index: 5; }
+  .aimhint.on { opacity: 1; transform: translateX(-50%); }
+  .aimhint.ask { color: var(--label); font-weight: 600; box-shadow: 0 0 0 2px #ff8a3d, var(--shadow); }
+  :root[data-mode="zeroday"] .aimhint.ask { box-shadow: 0 0 0 1px #22e6ff, 0 0 14px rgba(34, 230, 255, .45); }
+  .stage.aiming { cursor: crosshair; }
+  /* a squirt or a burst that came out of the screen: drops (or confetti) on the glass, sliding off */
+  .glass { position: fixed; inset: 0; pointer-events: none; z-index: 30; overflow: hidden; }
+  .glass i { position: absolute; border-radius: 50%; transform: translate(-50%, -50%) scale(.4); opacity: 0;
+             background: radial-gradient(circle at 34% 30%, rgba(255,255,255,.95) 0 9%, rgba(214,236,255,.55) 22%, rgba(140,195,245,.22) 62%, rgba(255,255,255,.35) 100%);
+             box-shadow: inset 0 -2px 4px rgba(60,120,190,.25), 0 2px 6px rgba(40,80,140,.18); animation: drop var(--d, 2.6s) cubic-bezier(.35,0,.6,1) forwards; }
+  .glass i.bit { border-radius: 2px; background: var(--c); box-shadow: none; animation-name: bit; }
+  .glass i.bit.px { border-radius: 0; box-shadow: 0 0 6px var(--c), 0 0 1px #fff; }
+  @keyframes drop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.4); } 6% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); } 12% { transform: translate(-50%, -50%) scale(1); }
+                    70% { opacity: .9; } 100% { opacity: 0; transform: translate(-50%, calc(-50% + var(--fall, 90px))) scale(.9, 1.15); } }
+  @keyframes bit { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--r)) scale(.4); } 8% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--r)) scale(1); }
+                   100% { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--fall, 160px))) rotate(calc(var(--r) + 220deg)); } }
+  @media (prefers-reduced-motion: reduce) { .glass i { --fall: 0px !important; --dx: 0px !important; animation-duration: 1.2s; } }
+  .mochi-hit { position: absolute; inset: 0; pointer-events: auto; cursor: pointer; touch-action: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  .stage.posing .mochi-hit { cursor: grab; }
+  .mochi-dots { position: absolute; top: 34px; right: 76%; display: inline-flex; gap: 4px; padding: 8px 10px; border-radius: 14px 14px 4px 14px; background: var(--card); box-shadow: var(--shadow); opacity: 0; transform: scale(.6) translateY(6px); transform-origin: 100% 100%; transition: opacity .2s, transform .35s cubic-bezier(.34,1.56,.64,1); pointer-events: none; }
+  .mochi-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--label-3); animation: dot 1.2s infinite ease-in-out; }
+  .mochi-dots i:nth-child(2) { animation-delay: .15s; } .mochi-dots i:nth-child(3) { animation-delay: .3s; }
+  @keyframes dot { 0%, 80%, 100% { transform: translateY(0); opacity: .4; } 40% { transform: translateY(-4px); opacity: 1; } }
+  .mochi.typing .mochi-dots { opacity: 1; transform: none; }
+  .mochi-say { position: absolute; top: 20px; right: 74%; width: max-content; max-width: 200px; padding: 8px 13px; border-radius: 16px 16px 4px 16px; background: var(--card); color: var(--label); box-shadow: var(--shadow-pop); font-size: 15px; font-weight: 600; line-height: 1.25; opacity: 0; transform: scale(.6) translateY(8px); transform-origin: 100% 100%; pointer-events: none; transition: opacity .2s, transform .4s cubic-bezier(.34,1.56,.64,1); }
+  .mochi.saying .mochi-say { opacity: 1; transform: none; }
+  .mochi.saying .mochi-dots { opacity: 0; }
+  .mochi.on-left .mochi-say { right: auto; left: 74%; border-radius: 16px 16px 16px 4px; transform-origin: 0 100%; }
+  .mochi.say-right .mochi-say { right: auto; left: 74%; border-radius: 16px 16px 16px 4px; transform-origin: 0 100%; }   /* Cocoa is on his left */
+  .mochi.on-left .mochi-dots { right: auto; left: 76%; border-radius: 14px 14px 14px 4px; transform-origin: 0 100%; }
+  .shelf { position: absolute; z-index: 5; left: 50%; bottom: 0; transform: translateX(-50%); display: flex; gap: 8px; font-size: 12px; color: var(--label-3); font-family: var(--mono); max-width: 92vw; overflow-x: auto; scrollbar-width: none; }
+  .shelf span { background: var(--card); padding: 3px 9px; border-radius: 999px; box-shadow: var(--shadow); white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
+  .shelf button.clear { font: inherit; color: var(--label-2, inherit); background: transparent; border: 1px dashed currentColor; padding: 2px 9px; border-radius: 999px; white-space: nowrap; cursor: pointer; opacity: .75; }
+  .shelf button.clear:hover, .shelf button.clear:focus-visible { opacity: 1; }
+  .shelf button.clear.ask { color: #c0392b; border-style: solid; opacity: 1; }
+  .shelf span.chip { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .shelf img, .shelf span.chip * { -webkit-user-drag: none; user-drag: none; pointer-events: none; }   /* the chip is what you pull, never its picture */
+  .proppanel { position: fixed; z-index: 40; display: flex; align-items: center; gap: 4px; padding: 5px 6px 5px 10px; background: var(--card); border-radius: 14px; box-shadow: var(--shadow-pop, 0 8px 22px rgba(40,30,60,.18)); font: 600 12px/1 var(--ui); color: var(--label-2, inherit); }
+  .proppanel[hidden] { display: none; }
+  .proppanel .pp-name { max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 4px; color: var(--label-3); font-weight: 600; }
+  .proppanel button { font: inherit; border: 0; border-radius: 9px; padding: 6px 9px; background: color-mix(in srgb, var(--card) 85%, #000 6%); color: inherit; cursor: pointer; }
+  .proppanel button:hover, .proppanel button:focus-visible { background: var(--accent, #e8744f); color: #fff; outline: none; }
+  .proppanel .pp-turn, .proppanel .pp-tip, .proppanel .pp-x { min-width: 30px; font-size: 15px; padding: 4px 6px; }
+  .proppanel[data-kind="held"] .pp-floor, .proppanel[data-kind="floor"] .pp-held { display: none; }
+  .proppanel.launcher .pp-tip, .proppanel.worn .pp-tip { display: none; }
+  .proppanel.launcher .pp-turn::after { content: " roll"; font-size: 11px; }
+  body.pulling, body.pulling * { cursor: grabbing !important; user-select: none; -webkit-user-select: none; }
+  .shelf img { width: 18px; height: 18px; object-fit: cover; object-position: 0 50%; border-radius: 4px; }   /* the front view only */
+  .status { position: absolute; top: 10px; right: 14px; font-size: 12px; color: var(--label-3); font-family: var(--mono); text-align: right; }
+  .status:empty { display: none; }
+  .status b { color: var(--accent); }
+  .bench { display: block; margin-top: 4px; color: var(--accent); }
+  .status:not(:empty) ~ .growth { top: 34px; }
+  /* how far he's come (Nov 3): "Day 3 with you · 14 things made · 5 moves · handshake · 0 bytes to the cloud" */
+  .growth { position: absolute; top: 12px; right: 14px; max-width: min(46vw, 420px); font: 600 12px/1.35 var(--ui); color: var(--label-2, var(--label)); text-decoration: none; text-align: right; z-index: 5; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 6px; }
+  .growth[hidden] { display: none; }
+  .growth span { background: var(--card); padding: 3px 9px; border-radius: 999px; box-shadow: var(--shadow); white-space: nowrap; }
+  .growth .day { color: #fff; background: var(--accent); }
+  .growth .zero { color: #1f7a3f; }
+  .growth .out { color: #a4541a; }
+  :root[data-mode="zeroday"] .growth span { font-family: var(--mono); border-radius: 4px; background: rgba(2, 14, 8, .82); color: #7dffad; box-shadow: 0 0 0 1px rgba(57, 255, 122, .4); }
+  :root[data-mode="zeroday"] .growth .day { background: #39ff7a; color: #021008; }
+  :root[data-mode="zeroday"] .growth .zero { color: #39ff7a; text-shadow: 0 0 8px rgba(57, 255, 122, .6); }
+  /* a move's skill, when he does one you taught him: stars that fill as you practise together */
+  .skillpop { position: absolute; left: 50%; bottom: 58px; transform: translateX(-50%) translateY(6px); padding: 6px 12px; border-radius: 999px; background: var(--card); box-shadow: var(--shadow-pop); font: 600 13px/1 var(--ui); color: var(--label); white-space: nowrap; opacity: 0; transition: opacity .2s, transform .25s; z-index: 5; pointer-events: none; }
+  .skillpop.on { opacity: 1; transform: translateX(-50%); }
+  .skillpop b { color: var(--accent); letter-spacing: 2px; font-weight: 400; }
+  .skillpop i { font-style: normal; color: var(--label-3); margin-left: 6px; }
+  :root[data-mode="zeroday"] .skillpop { font-family: var(--mono); border-radius: 4px; } :root[data-mode="zeroday"] .skillpop b { color: #39ff7a; }
+  /* the menu (Nov 4: one button instead of eight): a card that opens under it; the teaching bars still show on their own */
+  .menubtn { width: 40px; height: 40px; padding: 0; justify-content: center; }
+  .burger { display: grid; gap: 4px; } .burger i { display: block; width: 16px; height: 2px; border-radius: 2px; background: currentColor; transition: transform .25s, opacity .2s; }
+  .menubtn[aria-expanded="true"] .burger i:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+  .menubtn[aria-expanded="true"] .burger i:nth-child(2) { opacity: 0; }
+  .menubtn[aria-expanded="true"] .burger i:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+  .menubtn.news::after { content: ""; position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .menubtn { position: relative; }
+  .menu { display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 6px; min-width: 210px; max-width: calc(100vw - 32px); box-sizing: border-box; background: var(--card); border-radius: 16px; box-shadow: var(--shadow-pop, 0 8px 22px rgba(40,30,60,.18)); transform-origin: 0 0; animation: menuin .18s cubic-bezier(.2,.8,.3,1); }
+  .menu[hidden] { display: none; }
+  @keyframes menuin { from { opacity: 0; transform: scale(.96) translateY(-4px); } to { opacity: 1; transform: none; } }
+  .menu .pill { box-shadow: none; background: transparent; border-radius: 10px; padding: 10px 12px; justify-content: flex-start; text-decoration: none; }
+  .menu .pill:hover { background: rgba(127, 127, 127, .12); }
+  .menu .pill[hidden] { display: none; }
+  .menufoot { margin-top: 4px; padding: 8px 12px 4px; border-top: 1px solid rgba(127, 127, 127, .18); font: 11px/1.5 var(--mono); color: var(--label-3); display: grid; gap: 4px; }
+  .menufoot a { color: inherit; }
+  .menufoot .grew { font-family: var(--ui); font-weight: 600; color: var(--label); }
+  :root[data-mode="zeroday"] .menu { border-radius: 6px; background: rgba(2, 14, 8, .94); box-shadow: 0 0 0 1px rgba(57, 255, 122, .45), 0 10px 30px rgba(0, 0, 0, .5); }
+  :root[data-mode="zeroday"] .menu .pill { color: #c9ffe0; } :root[data-mode="zeroday"] .menufoot, :root[data-mode="zeroday"] .menufoot .grew { color: #7dffad; }
+  @media (prefers-reduced-motion: reduce) { .menu { animation: none; } .burger i { transition: none; } }
+  /* top-left controls: the menu, and the teaching bars */
+  .controls { position: absolute; top: 10px; left: 14px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; z-index: 12; }   /* above the shelf's chips (Nov 4: "Clear old props" showed through the open menu) */
+  .pill { font: 600 13px/1 var(--mono); border: 0; border-radius: 999px; padding: 8px 12px; background: var(--card); color: var(--label); box-shadow: var(--shadow); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: background-color .4s, color .4s, box-shadow .4s; }
+  .pill:focus-visible, .posebar button:focus-visible, .composer button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .switch { width: 30px; height: 18px; border-radius: 999px; background: #cfc8bd; position: relative; transition: background-color .3s; flex: none; }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .3s cubic-bezier(.34,1.56,.64,1); }
+  [aria-checked="true"] .switch { background: linear-gradient(90deg, #2fd8ff, #9b5cff); box-shadow: 0 0 10px rgba(47, 216, 255, .6); }
+  [aria-checked="true"] .switch::after { transform: translateX(12px); }
+  :root[data-mode="zeroday"] #zd { color: #7ff1ff; text-shadow: 0 0 8px rgba(47, 216, 255, .7); }
+  .posebar { display: none; flex-direction: column; gap: 6px; background: var(--card); box-shadow: var(--shadow-pop); border-radius: 14px; padding: 10px 12px; max-width: 240px; font-size: 13px; }
+  .stage.posing .posebar, .stage.naming .posebar { display: flex; }
+  .stage.posing #teach, .stage.naming #teach { display: none; }
+  .posebar .row { display: flex; gap: 6px; }
+  .posebar button { font: 600 13px var(--mono); border: 0; border-radius: 10px; padding: 7px 11px; cursor: pointer; background: var(--accent); color: #fff; }
+  .posebar button.ghost { background: transparent; color: var(--label-3); box-shadow: inset 0 0 0 1px currentColor; }
+  .posebar input { font: inherit; min-width: 0; flex: 1; border: 0; border-radius: 10px; padding: 7px 10px; background: var(--bg); color: var(--label); box-shadow: inset 0 0 0 1px var(--line); }
+  .posebar .naming-only { display: none; }
+  .stage .posebar.hsbar { display: none; }
+  .stage.hsteach .posebar.hsbar { display: flex; }
+  .stage.hsteach #teach, .stage.hsteach #teachHs, .stage.posing #teachHs, .stage.naming #teachHs { display: none; }
+  .hsbar .hs-check { display: none; }
+  .stage.hscheck .hsbar .hs-check { display: flex; }
+  .stage.hscheck .hsbar .hs-teach { display: none; }
+  .hssteps { display: flex; flex-wrap: wrap; gap: 4px; min-height: 22px; }
+  .hssteps span { background: var(--bg); box-shadow: inset 0 0 0 1px var(--line); border-radius: 999px; padding: 2px 8px; font-size: 12px; }
+  .stage.naming .posebar .naming-only { display: flex; }
+  .stage.naming .posebar .posing-only { display: none; }
+  /* chat */
+  .chat { flex: 1; overflow-y: auto; padding: 8px 16px 12px; display: flex; flex-direction: column; gap: 8px; max-width: 760px; width: 100%; margin: 0 auto; }
+  .msg { max-width: 78%; padding: 9px 14px; border-radius: 18px; background: var(--card); box-shadow: var(--shadow); white-space: pre-wrap; transition: background-color .5s, box-shadow .5s; }
+  .msg.me { align-self: flex-end; background: var(--me); border-bottom-right-radius: 5px; }
+  .msg.mochi { align-self: flex-start; border-bottom-left-radius: 5px; }
+  .msg.friend { align-self: flex-start; border-bottom-left-radius: 5px; margin-left: 18px; font-style: italic; }
+  .msg.mochi, .msg.friend { position: relative; margin-top: 12px; }
+  .msg.mochi::before, .msg.friend::before { content: "Mochi"; position: absolute; left: 10px; top: -9px; font: 700 10.5px/1 var(--ui); letter-spacing: .02em; color: var(--label-3); background: var(--card); padding: 1px 6px; border-radius: 6px; font-style: normal; }
+  .msg.friend.mimi::before { content: "Mimi"; color: #d8578a; }
+  .msg.friend.cocoa::before { content: "Cocoa"; color: #8a5a35; }
+  .msg.friend.cocoa { background: color-mix(in srgb, var(--card) 82%, #9a6a44); }
+  .msg.friend.mimi { background: color-mix(in srgb, var(--card) 85%, #ff8fb8); }
+  /* the scam check (Nov 7): a card under his answer: verdict, how sure, the warning signs with the words that show
+     them, what to do, and who checked it */
+  .msg.choices { white-space: normal; display: flex; flex-direction: column; gap: 6px; }
+  .msg.choices p { margin: 0 0 2px; font-weight: 600; }
+  .msg.choices button { font: 600 14.5px/1.3 var(--ui); text-align: left; padding: 9px 12px; border-radius: 12px; border: 1.5px solid var(--accent); background: transparent; color: var(--label); cursor: pointer; }
+  .msg.choices button:disabled { opacity: .45; cursor: default; }
+  .msg.choices button.picked { opacity: 1; background: var(--accent); color: #fff; }
+  .check details.more > summary { cursor: pointer; font: 600 13px/1.3 var(--ui); color: var(--accent); margin: 8px 0 0; }
+  /* a phone (Nov 7, Binoy: "some texts don't seem necessary … removes the clean feel"): the stage directions in
+     brackets stay off the chat (the stage shows it all), the cloud line moves into the menu */
+  @media (max-width: 640px) {
+    .msg.sys:not(.keep) { display: none; }
+    .growth .out, .growth .zero { display: none; }
+  }
+  .msg.check { white-space: normal; max-width: 86%; padding: 12px 14px 10px; border-left: 4px solid var(--v, #8e8e93); }
+  .msg.check.scam { --v: #d93636; } .msg.check.suspicious { --v: #e39b14; } .msg.check.safe { --v: #2e9d55; }
+  .msg.check::before { content: "Scam check"; }
+  .check .verdict { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 2px 0 6px; }
+  .check .pill { font: 700 13px/1 var(--ui); color: #fff; background: var(--v); border-radius: 999px; padding: 5px 10px; }
+  .check .sure { font-size: 13px; color: var(--label-3); }
+  .check h4 { margin: 8px 0 3px; font: 700 12px/1.2 var(--ui); letter-spacing: .03em; text-transform: uppercase; color: var(--label-3); }
+  .check ul, .check ol { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.4; }
+  .check li { margin: 2px 0; }
+  .check q { color: var(--label-3); font-style: italic; }
+  .check .who { margin: 8px 0 0; font-size: 11.5px; color: var(--label-3); }
+  .check q.sent { display: block; margin: 2px 0 0; font-size: 12.5px; }
+  :root[data-mode="zeroday"] .msg.check { border-left-color: var(--v); background: rgba(2, 18, 10, .88); color: #c9ffd9; font-family: var(--mono); }
+  .msg.sys { align-self: center; font-size: 12px; color: var(--label-3); background: transparent; box-shadow: none; padding: 2px; font-family: var(--mono); }
+  .msg.crisis { border: 2px solid var(--accent); }
+  :root[data-mode="zeroday"] .msg.me { box-shadow: 0 0 0 1px rgba(155, 92, 255, .6), 0 4px 18px rgba(155, 92, 255, .18); }
+  :root[data-mode="zeroday"] .msg.mochi { box-shadow: 0 0 0 1px rgba(47, 216, 255, .45), 0 4px 18px rgba(47, 216, 255, .12); }
+  /* his own story (Nov 3): what he's up to, his plans, what he did on his own; updates live */
+  .storycard { position: absolute; z-index: 7; right: max(16px, calc(50% - 450px)); top: 64px; max-height: calc(100% - 180px); overflow: auto; width: min(330px, calc(100vw - 32px)); padding: 14px 14px 10px; background: var(--card); border-radius: 18px; box-shadow: var(--shadow-pop, 0 8px 22px rgba(40,30,60,.18)); font: 13px/1.4 var(--ui); color: var(--label); }
+  .storycard[hidden] { display: none; }
+  .storycard h2 { font: 700 14px/1.3 var(--ui); margin: 0 0 6px; display: flex; align-items: baseline; gap: 8px; }
+  .storycard h2 small { font-weight: 500; color: var(--label-3); }
+  .storycard .chapter { margin: 0 0 10px; font-size: 14px; line-height: 1.45; }
+  .storycard .chapter:empty::before { content: "Nothing much yet. Teach me something and I'll have ideas."; color: var(--label-3); }
+  .storycard h3 { font: 600 11px/1 var(--mono); color: var(--label-3); margin: 10px 0 6px; letter-spacing: .02em; }
+  .storycard ul { list-style: none; margin: 0; padding: 0; }
+  .storycard .want { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 5px 0; border-top: 1px solid var(--line, rgba(0,0,0,.07)); }
+  .storycard .want b { font-weight: 600; } .storycard .want b small { font-weight: 500; color: var(--label-3); }
+  .storycard .want i { grid-column: 1 / -1; font-style: normal; color: var(--label-3); font-size: 12px; }
+  .storycard .want .you { font: 600 10px/1 var(--mono); color: #fff; background: var(--accent); border-radius: 999px; padding: 3px 6px; align-self: start; }
+  .storycard .dots { display: inline-flex; gap: 3px; vertical-align: middle; margin-left: 6px; }
+  .storycard .dots s { width: 7px; height: 7px; border-radius: 50%; background: var(--line, rgba(0,0,0,.12)); text-decoration: none; display: inline-block; }
+  .storycard .dots s.on { background: var(--accent); }
+  .storycard .recent li { color: var(--label-3); font-size: 12px; padding: 2px 0; }
+  .storycard .recent li.done { color: var(--label); }
+  .storycard .sc-row { display: flex; gap: 6px; justify-content: flex-end; margin-top: 10px; }
+  .storycard button { font: 600 12px/1 var(--ui); border: 0; border-radius: 10px; padding: 8px 11px; background: transparent; color: var(--label-3); box-shadow: inset 0 0 0 1px currentColor; cursor: pointer; }
+  .storycard button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #storyBtn.news::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; }
+  :root[data-mode="zeroday"] .storycard { border-radius: 6px; background: rgba(2, 14, 8, .94); color: #c9ffe0; box-shadow: 0 0 0 1px rgba(57, 255, 122, .45), 0 10px 30px rgba(0, 0, 0, .5); font-family: var(--mono); }
+  :root[data-mode="zeroday"] .storycard h3, :root[data-mode="zeroday"] .storycard .want i, :root[data-mode="zeroday"] .storycard .recent li { color: #7dffad; }
+  :root[data-mode="zeroday"] .storycard .want { border-top-color: rgba(57,255,122,.25); }
+  /* the doodle pad (Nov 3): draw it, he looks at it, names it and makes it */
+  .doodle { position: absolute; z-index: 7; right: max(16px, calc(50% - 450px)); top: 50%; transform: translateY(-50%); width: min(340px, calc(100vw - 32px));   /* beside him, so he can watch you draw */ padding: 12px; background: var(--card); border-radius: 18px; box-shadow: var(--shadow-pop, 0 8px 22px rgba(40,30,60,.18)); }
+  .doodle[hidden] { display: none; }
+  .doodle .dd-title { margin: 2px 4px 8px; font: 700 14px/1.3 var(--ui); color: var(--label); }
+  .doodle canvas { display: block; width: 100%; aspect-ratio: 10 / 7; background: #fff; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line, rgba(0,0,0,.12)); touch-action: none; cursor: crosshair; }
+  .doodle .dd-row { display: flex; gap: 6px; justify-content: flex-end; margin-top: 10px; }
+  /* crayons (Nov 4): the colours go to the workbench with the drawing */
+  .doodle .dd-crayons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; padding: 0 2px; }
+  .doodle .dd-crayons button { width: 24px; height: 24px; padding: 0; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .18); color: inherit; }
+  .doodle .dd-crayons button[aria-checked="true"] { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .doodle .dd-crayons button.eraser { background: #fff linear-gradient(135deg, transparent 45%, #b9b2c6 45%, #b9b2c6 55%, transparent 55%); }
+  .doodle button { font: 600 13px/1 var(--ui); border: 0; border-radius: 10px; padding: 9px 12px; background: var(--accent); color: #fff; cursor: pointer; }
+  .doodle button.ghost { background: transparent; color: var(--label-3); box-shadow: inset 0 0 0 1px currentColor; }
+  .doodle button:disabled { opacity: .55; cursor: default; }
+  .doodle button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  :root[data-mode="zeroday"] .doodle { border-radius: 6px; background: rgba(2, 14, 8, .94); box-shadow: 0 0 0 1px rgba(57, 255, 122, .45), 0 10px 30px rgba(0, 0, 0, .5); }
+  :root[data-mode="zeroday"] .doodle .dd-title { font-family: var(--mono); color: #7dffad; }
+  :root[data-mode="zeroday"] .doodle button { font-family: var(--mono); border-radius: 4px; background: #39ff7a; color: #021008; }
+  :root[data-mode="zeroday"] .doodle button.ghost { background: transparent; color: #7dffad; }
+  .feedback textarea, .feedback input { display: block; width: 100%; box-sizing: border-box; font: 14px/1.4 var(--ui); border: 0; border-radius: 12px; padding: 9px 11px; margin-bottom: 8px; background: var(--bg); color: var(--label); box-shadow: inset 0 0 0 1px var(--line, rgba(0,0,0,.12)); resize: vertical; }
+  .msg.me img.dd-pic { display: block; width: 96px; margin-top: 6px; border-radius: 8px; background: #fff; }
+  .msg.painting img.dd-pic { display: block; width: min(220px, 60vw); margin: 2px 0 6px; border-radius: 6px; box-shadow: 0 0 0 6px #e9dcc4, 0 0 0 7px rgba(0,0,0,.08); }
+  .msg.painting div { font-size: 13px; color: var(--label-3); }
+  /* things to try (Nov 3, for judges walking up): one tap says it */
+  .tries { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px 16px 4px; max-width: 760px; width: 100%; margin: 0 auto; }
+  .tries[hidden] { display: none; }
+  .tries::-webkit-scrollbar { display: none; }
+  .tries button { flex: none; font: 600 12.5px/1 var(--ui); border: 0; border-radius: 999px; padding: 7px 12px; background: var(--card); color: var(--label-2, var(--label)); box-shadow: var(--shadow); white-space: nowrap; cursor: pointer; transition: background-color .2s, color .2s; }
+  .tries button:hover, .tries button:focus-visible { background: var(--accent); color: #fff; outline: none; }
+  :root[data-mode="zeroday"] .tries button { font-family: var(--mono); border-radius: 4px; background: rgba(2, 14, 8, .82); color: #7dffad; box-shadow: 0 0 0 1px rgba(57, 255, 122, .4); }
+  :root[data-mode="zeroday"] .tries button:hover, :root[data-mode="zeroday"] .tries button:focus-visible { background: #39ff7a; color: #021008; }
+  .composer { display: flex; gap: 8px; padding: 10px 16px calc(12px + env(safe-area-inset-bottom)); max-width: 760px; width: 100%; margin: 0 auto; }
+  .composer input { flex: 1; min-width: 0; font: inherit; border: 0; outline: 0; background: var(--card); color: var(--label); padding: 12px 16px; border-radius: 22px; box-shadow: var(--shadow-pop); transition: background-color .5s, box-shadow .3s; }
+  .composer input:focus-visible { box-shadow: var(--shadow-pop), 0 0 0 2px var(--accent); }
+  .composer .who { flex: 0 0 74px; font: 600 13px/1 var(--ui); border: 0; border-radius: 22px; background: var(--card); color: var(--label-2, inherit); box-shadow: var(--shadow-pop); cursor: pointer; padding: 0 8px; }
+  .composer .who::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--accent, #e8744f); vertical-align: 1px; }
+  .composer .who[data-who="mimi"]::before { background: #ff74a6; } .composer .who[data-who="cocoa"]::before { background: #9a6a44; }
+  .composer .who:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .composer button { font: inherit; border: 0; border-radius: 22px; padding: 10px 18px; background: var(--accent); color: #fff; cursor: pointer; transition: background .4s; }
+  :root[data-mode="zeroday"] .composer button { background: linear-gradient(90deg, #2f8cff, #9b5cff); box-shadow: 0 0 16px rgba(110, 120, 255, .45); }
+  /* a big explosion: a flash from the spot, and the page jolts */
+  .flash { position: fixed; inset: 0; pointer-events: none; z-index: 29; opacity: 0; background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(255,255,255,.95), rgba(255,200,120,.55) 18%, rgba(255,160,80,0) 45%); }
+  .flash.go { animation: boomflash .55s ease-out; }
+  .flash.zd { background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(214,255,228,.95), rgba(57,255,122,.55) 18%, rgba(47,216,255,0) 48%); }
+  @keyframes boomflash { 0% { opacity: 0; } 8% { opacity: 1; } 100% { opacity: 0; } }
+  body.jolt .stage, body.jolt .chat, body.jolt .composer { animation: jolt .45s cubic-bezier(.3,.7,.4,1); }
+  @keyframes jolt { 0% { transform: translate(0,0); } 15% { transform: translate(-6px, 4px); } 30% { transform: translate(5px, -3px); } 45% { transform: translate(-3px, 2px); } 60% { transform: translate(2px, -2px); } 100% { transform: translate(0,0); } }
+  /* voice: the mic button and the "tap the spot" cue */
+  .mic { border: 0; border-radius: 22px; width: 44px; padding: 0; background: var(--card); color: var(--label); box-shadow: var(--shadow-pop); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background .3s, color .3s, box-shadow .3s; }
+  /* Nov 4, Binoy (on his phone): "it is not clear it is recording and when I stopped the recording". The mic is a
+     white button (the Send button's orange made it look the same on and off); recording, it turns red with a stop
+     square, and a bar over the message box says it's listening, for how long, and what it's heard so far */
+  .composer .mic { background: var(--card); color: var(--label); padding: 0; }
+  .composer .mic .stop { display: none; }
+  .composer .mic[data-state="on"] { background: #e5484d; color: #fff; box-shadow: 0 0 0 4px rgba(229, 72, 77, .28); animation: micpulse 1.1s ease-in-out infinite; }
+  .composer .mic[data-state="on"] .glyph { display: none; }
+  .composer .mic[data-state="on"] .stop { display: block; }
+  .composer .mic[data-state="busy"] { opacity: .6; }
+  .recbar { display: flex; align-items: center; gap: 10px; max-width: 760px; width: calc(100% - 32px); margin: 0 auto 2px; padding: 9px 14px; border-radius: 16px; background: var(--card); color: var(--label); box-shadow: var(--shadow-pop); font: 600 14px/1.3 var(--ui); }
+  .recbar[hidden] { display: none; }
+  .recbar .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: #e5484d; animation: recblink 1s steps(2, start) infinite; }
+  .recbar[data-state="busy"] .dot { background: var(--label-3, #8e8e93); animation: none; }
+  .recbar[data-state="done"] .dot { background: #3aa76d; animation: none; }
+  .recbar .txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .recbar .time { flex: none; font-variant-numeric: tabular-nums; color: var(--label-3, #8e8e93); }
+  .recbar button { flex: none; border: 0; border-radius: 14px; padding: 6px 12px; background: #e5484d; color: #fff; font: inherit; cursor: pointer; }
+  .recbar[data-state="busy"] button, .recbar[data-state="done"] button { display: none; }
+  @keyframes recblink { to { visibility: hidden; } }
+  :root[data-mode="zeroday"] .recbar .dot, :root[data-mode="zeroday"] .recbar button { background: #39ff7a; color: #021008; }
+  :root[data-mode="zeroday"] .mic { border-radius: 4px; }
+  :root[data-mode="zeroday"] .mic[data-state="on"] { background: #39ff7a; color: #021008; box-shadow: 0 0 0 4px rgba(57, 255, 122, .25); }
+  @keyframes micpulse { 50% { box-shadow: 0 0 0 9px rgba(232, 116, 79, .08); } }
+  .pointcue { position: absolute; left: 50%; top: 14px; transform: translateX(-50%) translateY(-6px); padding: 8px 16px; border-radius: 999px; background: var(--accent); color: #fff; font-weight: 700; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .25s; z-index: 6; box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+  .pointcue.on { opacity: 1; transform: translateX(-50%); animation: cuebob 1.2s ease-in-out infinite; }
+  @keyframes cuebob { 50% { transform: translateX(-50%) translateY(3px); } }
+  .stage.pointing { cursor: crosshair; }
+  .stage.pointing::after { content: ""; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 0 3px var(--accent); border-radius: 12px; opacity: .55; animation: cuebob 1.2s ease-in-out infinite; }
+  :root[data-mode="zeroday"] .pointcue { border-radius: 4px; background: #39ff7a; color: #021008; font-family: var(--mono); }
+  @media (prefers-reduced-motion: reduce) { .mochi-dots i { animation: none; } .sweep.go { animation: none; } .mic[data-state="on"], .recbar .dot, .pointcue.on, .stage.pointing::after { animation: none; } }
+</style>
+<link rel="stylesheet" href="/zeroday.css">
+</head>
+<body>
+<div class="sweep" id="sweep" aria-hidden="true"></div>
+<div class="glass" id="glass" aria-hidden="true"></div>
+<div class="flash" id="flash" aria-hidden="true"></div>
+<section class="stage" id="stage">
+  <div class="controls">
+    <!-- Nov 4, Binoy: "there seems to be too many buttons on the screen now and it seems messy": one button, the rest in its menu -->
+    <button class="pill menubtn" id="menuBtn" aria-expanded="false" aria-controls="menu" aria-label="Menu" title="Menu"><span class="burger" aria-hidden="true"><i></i><i></i><i></i></span></button>
+    <div class="menu" id="menu" role="menu" hidden>
+    <button class="pill" id="zd" role="switch" aria-checked="false" title="Zero Day mode: midnight neon, and a cooler Mochi"><span class="switch" aria-hidden="true"></span>Zero Day</button>
+    <button class="pill" id="teach" title="Drag his arms, head, body or feet to teach him a move">Teach a move</button>
+    <button class="pill" id="teachHs" title="Tap and swipe his hooves, head and tummy to teach him your secret handshake">Teach a handshake</button>
+    <button class="pill" id="mute" aria-pressed="false">🔊 Voice on</button>
+    <button class="pill" id="ideas" aria-pressed="false" aria-controls="tries" title="Things to say to him (for anyone trying him out)">Ideas</button>
+    <button class="pill" id="draw" aria-haspopup="dialog" title="Draw something and he'll make it">Draw for him</button>
+    <button class="pill" id="storyBtn" aria-pressed="false" aria-controls="storycard" title="His own little plans, and what he gets up to on his own">His story</button>
+    <button class="pill" id="fbBtn" aria-haspopup="dialog" hidden title="Tell Binoy what you think">Feedback</button>
+    <a class="pill" id="roomLink" href="/room" target="_blank">His workshop ↗</a>
+    <a class="pill" id="voicesLink" href="/voices" target="_blank" title="How Mochi, Mimi and Cocoa sound">Voices ↗</a>
+    <div class="menufoot" id="menuFoot"><span class="grew" id="menuGrew"></span><span id="menuStatus"></span></div>
+    </div>
+    <div class="posebar hsbar" id="hsbar" role="group" aria-label="Teaching a handshake">
+      <div id="hsHelp">Tap or swipe his hooves, tap his head or tummy, in your order (up to 8).</div>
+      <div class="hssteps" id="hsSteps" aria-live="polite"></div>
+      <div class="row hs-teach"><button id="hsDone">Done</button><button class="ghost" id="hsCancel">Cancel</button></div>
+      <div class="row hs-check"><button id="hsSave">Save it</button><button class="ghost" id="hsAgain">Try again</button></div>
+    </div>
+    <div class="posebar" role="group" aria-label="Teaching a move">
+      <div class="posing-only" id="poseHelp">Drag his arms, head, body or feet. He remembers the timing. Stand him up first if the move is a standing one.</div>
+      <div class="row posing-only"><button id="poseDone">Done</button><button class="ghost" id="poseStand" aria-pressed="false">Stand up</button><button class="ghost" id="poseCancel">Cancel</button></div>
+      <div class="naming-only" id="nameHelp">What's this move called?</div>
+      <div class="row naming-only"><input id="moveName" placeholder="my twirl" maxlength="40" aria-label="Move name"><button id="moveSave">Save</button></div>
+      <div class="row naming-only"><button class="ghost" id="moveAgain">Watch again</button><button class="ghost" id="moveDrop">Discard</button></div>
+    </div>
+  </div>
+  <div class="status" id="status">connecting…</div>
+  <a class="growth" id="growth" href="/room" target="_blank" title="How far he's come (opens his workshop)" hidden></a>
+  <div class="skillpop" id="skillpop" role="status" aria-live="polite"></div>
+  <div id="mochi" class="mochi" aria-hidden="true" title="Mochi" data-pad-x="1.15" data-cover="viewport" data-roam="page" data-floor="#composer">
+    <canvas></canvas><div class="mochi-hit"></div><div class="mochi-dots"><i></i><i></i><i></i></div>
+  </div>
+  <div class="aimhint" id="aimhint" role="status"></div>
+  <div class="pointcue" id="pointcue" role="status" aria-live="polite"></div>
+  <div class="shelf" id="shelf"></div>
+  <aside class="storycard" id="storycard" aria-label="Mochi's story" hidden>
+    <h2>Mochi's story <small id="scWhen"></small></h2>
+    <p class="chapter" id="scChapter"></p>
+    <h3>He wants to</h3><ul id="scWants"></ul>
+    <h3>Lately</h3><ul class="recent" id="scRecent"></ul>
+    <div class="sc-row"><button type="button" id="scPause" title="He'll keep his plans to himself for 15 minutes">Not now</button><button type="button" id="scClose">Close</button></div>
+  </aside>
+  <div class="doodle" id="doodle" role="dialog" aria-label="Draw something for Mochi" hidden>
+    <p class="dd-title" id="ddTitle">Draw something for Mochi to make</p>
+    <canvas id="ddPad" width="600" height="420" aria-label="Drawing pad"></canvas>
+    <div class="dd-crayons" id="ddCrayons" role="radiogroup" aria-label="Crayon colour">
+      <button type="button" role="radio" aria-checked="true" aria-label="Black" data-c="#1d1a22" style="--c:#1d1a22"></button>
+      <button type="button" role="radio" aria-checked="false" aria-label="Red" data-c="#e5484d" style="--c:#e5484d"></button>
+      <button type="button" role="radio" aria-checked="false" aria-label="Orange" data-c="#ff9f43" style="--c:#ff9f43"></button>
+      <button type="button" role="radio" aria-checked="false" aria-label="Yellow" data-c="#ffd34d" style="--c:#ffd34d"></button>
+      <button type="button" role="radio" aria-checked="false" aria-label="Green" data-c="#4fbf68" style="--c:#4fbf68"></button>
+      <button type="button" role="radio" aria-checked="false" aria-label="Blue" data-c="#3d8bff" style="--c:#3d8bff"></button>
+      <button type="button" role="radio" aria-checked="false" aria-label="Purple" data-c="#8f6bd6" style="--c:#8f6bd6"></button>
+      <button type="button" role="radio" aria-checked="false" aria-label="Pink" data-c="#ff8fb8" style="--c:#ff8fb8"></button>
+      <button type="button" role="radio" aria-checked="false" aria-label="Brown" data-c="#8f5b36" style="--c:#8f5b36"></button>
+      <button type="button" role="radio" aria-checked="false" aria-label="Eraser" data-c="#ffffff" class="eraser"></button>
+    </div>
+    <div class="dd-row"><button type="button" class="ghost" id="ddClear">Clear</button><button type="button" class="ghost" id="ddCancel">Cancel</button><button type="button" id="ddGo">Give it to Mochi</button></div>
+  </div>
+  <form class="doodle feedback" id="fb" role="dialog" aria-label="Feedback" hidden>
+    <p class="dd-title">What did you think of Mochi? What was confusing, what was fun?</p>
+    <textarea id="fbText" rows="5" maxlength="2000" required aria-label="Your feedback"></textarea>
+    <input id="fbName" maxlength="60" placeholder="your name (optional)" aria-label="Your name (optional)">
+    <div class="dd-row"><button type="button" class="ghost" id="fbCancel">Cancel</button><button type="submit" id="fbSend">Send</button></div>
+  </form>
+  <div class="proppanel" id="propPanel" role="toolbar" aria-label="Move and turn the prop" hidden>
+    <span class="pp-name" id="ppName"></span>
+    <button type="button" data-act="turnL" class="pp-turn" title="Turn left (Q)" aria-label="Turn left">↺</button>
+    <button type="button" data-act="turnR" class="pp-turn" title="Turn right (E)" aria-label="Turn right">↻</button>
+    <button type="button" data-act="tipL" class="pp-tip" title="Tip it over to the left (T)" aria-label="Tip left">⤹</button>
+    <button type="button" data-act="tipR" class="pp-tip" title="Tip it over to the right" aria-label="Tip right">⤸</button>
+    <button type="button" data-act="reset" class="pp-floor" title="Stand it up straight again">Straighten</button>
+    <button type="button" data-act="give" class="pp-floor" title="Give it to Mochi (Enter)">Give to Mochi</button>
+    <button type="button" data-act="away" class="pp-floor" title="Back on his shelf (Delete)">Put away</button>
+    <button type="button" data-act="down" class="pp-held" title="Put it on the floor">Put it down</button>
+    <button type="button" data-act="close" class="pp-x" title="Close (Esc)" aria-label="Close">×</button>
+  </div>
+</section>
+<main class="chat" id="chat" aria-live="polite"></main>
+<div class="tries" id="tries" role="group" aria-label="Things to try">
+  <button type="button">What are you up to today?</button>
+  <button type="button">Let's dance!</button>
+  <button type="button">Play the scam-spotting game</button>
+  <button type="button">Is this text a scam?</button>
+  <button type="button">Paint me a dragon</button>
+  <button type="button">Play the guitar for Mimi</button>
+  <button type="button">Let's have a tea party</button>
+  <button type="button">Play catch with Cocoa</button>
+  <button type="button">Can you do a rain dance?</button>
+  <button type="button">Make me a cupcake</button>
+  <button type="button">Water the flower</button>
+  <button type="button">Cut the paper</button>
+  <button type="button">Light the campfire</button>
+  <button type="button">Make me a tent</button>
+  <button type="button">Pop the balloon</button>
+  <button type="button">You should show Cocoa your new thing</button>
+  <button type="button">Mimi, how was your day?</button>
+  <button type="button">Shoot Cocoa with your water pistol</button>
+  <button type="button">Snowball fight!</button>
+  <button type="button">Ride your bike</button>
+  <button type="button">Can you sneeze?</button>
+  <button type="button">Oh no, you caught a cold!</button>
+  <button type="button">Help me save $20 for a kite</button>
+  <button type="button">Give Mimi a hug</button>
+  <button type="button">Let's do our handshake</button>
+</div>
+<div class="recbar" id="recbar" hidden role="status" aria-live="polite"><span class="dot" aria-hidden="true"></span><span class="txt" id="recText">Listening…</span><span class="time" id="recTime"></span><button type="button" id="recStop">Stop</button></div>
+<form class="composer" id="composer">
+  <button type="button" class="who" id="who" data-who="mochi" title="Who you're talking to (tap to switch)" aria-label="Talking to Mochi. Tap to talk to Mimi">Mochi</button>
+  <input id="msg" type="text" placeholder="Talk to Mochi" autocomplete="off" aria-label="Message">
+  <button type="button" class="mic" id="mic" data-state="off" aria-label="Talk to Mochi" title="Talk to Mochi (or hold Space)"><svg class="glyph" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 15a4 4 0 0 0 4-4V6a4 4 0 1 0-8 0v5a4 4 0 0 0 4 4zm6-4a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.93V22h2v-3.07A8 8 0 0 0 20 11z"/></svg><svg class="stop" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></svg></button>
+  <button type="submit">Send</button>
+</form>
+
+<script src="/zeroday.js"></script>
+<script src="/voice.js" defer></script>
+<script src="/party.js" defer></script>
+<script type="module">
+  import "/kit/dist/mochi.min.js";
+  import { isCrisis } from "/shared/safety.js";
+  const send = (name, detail = {}) => document.dispatchEvent(new CustomEvent("mochi:" + name, { detail }));
+  const M = () => window.__mochi;
+  const $ = (id) => document.getElementById(id);
+  const chat = $("chat"), input = $("msg"), status = $("status"), stage = $("stage");
+  // a phone (Nov 4, Binoy: "whenever I tapped on mochi the keyboard opened and it would hide mochi"): the message box
+  // never takes the focus by itself there (that brings the keyboard up); you tap it to type. A tap on the stage (on
+  // him, his things, his friends) puts the keyboard away again, so you can see him
+  const touchy = matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
+  const focusInput = () => { if (!touchy) input.focus(); };
+  if (touchy) { stage.addEventListener("pointerdown", () => { const a = document.activeElement; if (a && /^(INPUT|TEXTAREA)$/.test(a.tagName)) a.blur(); }, true); }
+  // and with the keyboard up, the page fits above it: the stage on top (smaller), the chat and the message box below
+  if (touchy && window.visualViewport) {
+    const vv = visualViewport, root = document.documentElement;
+    let tall = vv.height;
+    const fit = () => {
+      tall = Math.max(tall, vv.height);
+      const a = document.activeElement, typing = !!(a && /^(INPUT|TEXTAREA)$/.test(a.tagName)), kb = typing && vv.height < tall * 0.8;
+      root.style.setProperty("--vvh", `${Math.round(vv.height)}px`);
+      root.style.setProperty("--kbStage", `${Math.round(Math.max(150, Math.min(300, vv.height * 0.4)))}px`);
+      root.classList.toggle("kb", kb);
+      if (kb && (window.scrollY || document.scrollingElement.scrollTop)) window.scrollTo(0, 0);
+    };
+    vv.addEventListener("resize", fit); vv.addEventListener("scroll", fit);
+    addEventListener("focusin", () => setTimeout(fit, 350)); addEventListener("focusout", () => setTimeout(fit, 120));
+    addEventListener("orientationchange", () => { tall = 0; setTimeout(fit, 400); });
+    fit();
+  }
+  const store = { get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (_) { /* private mode */ } } };
+
+  function bubble(text, who = "mochi", cls = "", { quiet = false } = {}) {
+    text = String(text || "").replace(/\{\/?(?:whisper|soft|loud|slow|fast|high|low|happy|excited|sad|sorry|worried|scared|cross|angry|sleepy|shy|proud|pause|break|rate|vol|volume|pitch|speed)?(?:=[^{}\s]*)?\}/gi, "").replace(/\s{2,}/g, " ").trim();   // (voice tags are heard, not shown)
+    const d = document.createElement("div"); d.className = `msg ${who} ${cls}`; chat.appendChild(d);
+    const Z = window.ZD;   // Zero Day: his replies type out like a terminal, the bracketed lines read like a log
+    if (Z && Z.on() && who === "mochi" && !cls.includes("crisis")) Z.type(d, text); else d.textContent = Z && who === "sys" ? Z.sys(text) : text;
+    chat.scrollTop = chat.scrollHeight;
+    // whatever he (or they) says in the chat is said out loud too (Nov 5: "Here's your apple! Ta-da!" when a prop was
+    // ready came up silent, like the activity lines, the story lines and the shelf stories). Not a crisis reply (that
+    // stays quiet on purpose), not a line the caller speaks itself (quiet), not his [stage directions] (voice.js drops
+    // those); "Mimi: \"…\"" in his column is Mimi's line, in her voice. A line said a moment ago isn't said twice.
+    if (!quiet && window.VOICE && text && (who === "mochi" || who === "friend") && !cls.includes("crisis")) {
+      const fm = who === "mochi" && /^(Mimi|Cocoa): "([\s\S]*)"$/.exec(text);
+      const w = who === "friend" ? (cls === "cocoa" ? "cocoa" : "mimi") : fm ? fm[1].toLowerCase() : "mochi";
+      window.VOICE.speak(fm ? fm[2] : text, { who: w, after: true });
+    }
+    return d;
+  }
+
+  // the scam-call game's "what should Mimi do?" (Nov 7): the choices as buttons you can tap (or say the number)
+  function choiceRow(choices) {
+    const d = document.createElement("div"); d.className = "msg mochi choices"; d.setAttribute("role", "group"); d.setAttribute("aria-label", "What should Mimi do?");
+    for (const c of choices) {
+      const b = document.createElement("button"); b.type = "button"; b.textContent = `${c.n}. ${c.text}`;
+      b.onclick = () => { if (busy) return; d.querySelectorAll("button").forEach((x) => { x.disabled = true; }); b.classList.add("picked"); input.value = `${c.n}) ${c.text}`; $("composer").requestSubmit(); };
+      d.appendChild(b);
+    }
+    chat.appendChild(d); chat.scrollTop = chat.scrollHeight;
+  }
+  // Detective Mochi (Nov 7): the hat goes on and the magnifying glass comes out while the two checks read the message;
+  // the answer: the stop sign held up for a scam ("Blocked!"), a thinking face when he's not sure, a happy bounce for
+  // a normal one; the hat comes off a little later
+  let detAt = 0;
+  function detective(m) {
+    const k = M(); if (!k || !PR()) return;
+    detAt = Date.now();
+    dressOne({ who: "mochi", title: "detective", wear: m.wear || [], hold: m.hold || null });
+    setTimeout(() => k.play && k.play("thinking", 2600), 900);
+  }
+  function detectiveVerdict(c) {
+    const k = M(), pr = PR(); if (!k || !pr) return;
+    const after = Math.max(300, detAt + 1700 - Date.now());   // (after the magnifying glass is out, even when the check was quick)
+    if (c.verdict === "scam") {
+      if (c.props && c.props.sign) setTimeout(() => PR().summon(c.props.sign, { ms: 9000, quiet: true }), after);
+      if (c.props && c.props.hat) setTimeout(() => PR().summon(c.props.hat, { ms: 11000, quiet: true }), after + 450);   // (the hat stays on with the sign up)
+      setTimeout(() => k.play && k.play("surprised", 1400), 300);
+      setTimeout(() => k.fx && k.fx("star"), 900);
+    } else if (c.verdict === "suspicious") setTimeout(() => k.play && k.play("thinking", 2400), 300);
+    else { setTimeout(() => k.play && k.play("happy", 1800), 300); setTimeout(() => { const p = PR(); if (p && p.current() && /magnifying/.test(p.current().name || "")) p.putAway(); }, 2600); }
+    setTimeout(() => { const p = PR(); if (p && p.takeOff) p.takeOff("head"); }, 12000);
+  }
+
+  // the scam check's card (server/scamcheck.js): built from text nodes only (the message is someone else's words)
+  function scamCard(c) {
+    const el = (tag, text, cls) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    const d = el("div", null, `msg mochi check ${["scam", "suspicious", "safe"].includes(c.verdict) ? c.verdict : "suspicious"}`);
+    const v = el("div", null, "verdict");
+    v.append(el("span", { scam: "Looks like a scam", suspicious: "Be careful", safe: "Looks okay" }[c.verdict] || "Be careful", "pill"),
+      el("span", `${c.typeName ? `${c.typeName} · ` : ""}${["pretty sure", "fairly sure", "not sure"].includes(c.sure) ? c.sure : "rules only"}`, "sure"));
+    d.append(v);
+    if (c.why) d.append(el("div", c.why, "sure"));
+    // (Nov 7: on a phone the whole card was a wall of text; there it shows the verdict, two signs and three steps,
+    // and the rest folds under "More about this check", open on a wide screen)
+    const wide = !matchMedia("(max-width: 640px)").matches, nT = wide ? 5 : 2, nS = wide ? 6 : 3;
+    const more = el("details", null, "more"); more.open = wide; more.append(el("summary", "More about this check"));
+    const tells = c.tells && c.tells.length && c.verdict !== "safe" ? c.tells.slice(0, 5) : [];
+    const tellList = (list) => { const ul = el("ul"); for (const t of list) { const li = el("li", t.tell); if (t.quote) { li.append(" "); li.append(el("q", t.quote)); } ul.append(li); } return ul; };
+    if (tells.length) { d.append(el("h4", "Warning signs")); d.append(tellList(tells.slice(0, nT))); }
+    const steps = (c.steps || []).slice(0, 6), ordered = c.verdict !== "safe";
+    d.append(el("h4", ordered ? "What to do" : "Good to know"));
+    const ol = el(ordered ? "ol" : "ul"); for (const st of steps.slice(0, nS)) ol.append(el("li", st)); d.append(ol);
+    if (tells.length > nT) { more.append(el("h4", "More warning signs")); more.append(tellList(tells.slice(nT))); }
+    if (steps.length > nS) { const o2 = el(ordered ? "ol" : "ul"); if (ordered) o2.start = nS + 1; for (const st of steps.slice(nS)) o2.append(el("li", st)); more.append(o2); }
+    // the link X-ray: the address taken apart (never opened)
+    if (c.xray && c.xray.length) {
+      more.append(el("h4", "The link, taken apart"));
+      const ul = el("ul"); for (const x of c.xray.slice(0, 2)) { const li = el("li"); li.append(el("q", x.host)); for (const n of x.notes) li.append(el("div", n)); ul.append(li); } more.append(ul);
+    }
+    more.append(el("p", `Checked by Mochi's rules${c.words ? `, his word counter` : ""}${c.model ? ` and ${c.model.by}` : ""}${c.ms ? ` in ${(c.ms / 1000).toFixed(1)} s` : ""}. He can be wrong: when in doubt, ask a grown-up.`, "who"));
+    // privacy by design: what (if anything) left this computer, after names, numbers and codes were hidden
+    if (c.privacy) {
+      more.append(el("p", `Privacy: ${c.privacy.note}`, "who"));
+      if (c.privacy.left && c.privacy.sent) { const q = el("q", c.privacy.sent); q.className = "sent"; more.append(q); }
+    }
+    d.append(more);
+    chat.appendChild(d); chat.scrollTop = chat.scrollHeight;
+    return d;
+  }
+
+  // ---- Zero Day mode: the page, Mochi, his props and his personality switch together
+  let mode = store.get("mochi.mode") === "zeroday" ? "zeroday" : "normal";
+  function setMode(next, animate = true) {
+    if (animate && mode === "zeroday" && next !== "zeroday" && window.ZD) { window.ZD.powerOff(() => applyMode(next, animate)); return; }
+    applyMode(next, animate);
+  }
+  function applyMode(next, animate) {
+    mode = next === "zeroday" ? "zeroday" : "normal";
+    document.documentElement.dataset.mode = mode;
+    $("zd").setAttribute("aria-checked", String(mode === "zeroday"));
+    paintPlaceholder();
+    send("mode", { mode, animate });
+    store.set("mochi.mode", mode);
+    if (window.ZD) window.ZD.mode(mode, animate);   // the rain, and a boot-up when it goes on
+  }
+  $("zd").addEventListener("click", () => setMode(mode === "zeroday" ? "normal" : "zeroday"));
+  // "here, take it" / "here you go" / "this is for you, Mochi": the whole message, not "I can't take it anymore"
+  const TAKE_IT = /^\s*(?:(?:ok(?:ay)?|mochi|hey|here)[,!\s]+)*(?:here(?: you go| you are)?|take (?:it|this|that)|have (?:it|this)|hold (?:it|this|that)|catch|(?:this|it)(?:'?s| is) for you|for you)(?:[,!\s]+(?:take (?:it|this)|mochi|buddy|little guy))*\s*[!.~♡❤]*\s*$/i;
+  const ZD_ON = /\b(zero[\s-]?day)\b.*\b(on|mode|activate|enable|go|start)\b|\b(activate|enable|start|go|enter|switch\s+to|turn\s+on)\s+(the\s+)?zero[\s-]?day\b/i;
+  const ZD_OFF = /\b(zero[\s-]?day)\b.*\b(off|disable|stop|exit|end)\b|\b(normal|regular|default)\s+mode\b|\b(exit|leave|disable|stop|turn\s+off)\s+(the\s+)?zero[\s-]?day\b/i;
+
+  // ---- WebSocket: server pushes (reveals, care mode, workbench progress) and our typing signal
+  let ws, wsOk = false;
+  const wsSend = (m) => { if (wsOk) ws.send(JSON.stringify(m)); };
+  function connect() {
+    ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
+    ws.onopen = () => { wsOk = true; refreshStatus(); };
+    ws.onclose = () => { wsOk = false; refreshStatus(); setTimeout(connect, 2000); };
+    ws.onmessage = (e) => {
+      const m = JSON.parse(e.data);
+      if (m.type === "hello" && m.sulking) send("sulk", { on: true, animate: false });
+      if (m.type === "hello" || m.type === "care") { care = m.type === "hello" ? !!m.care : m.on !== false; HS() && HS().care(care); }   // no games while he's worried about you
+      if (m.type === "first") applyFirst(m);   // his first reaction, before the brain has answered
+      if (m.type === "hello") coldFromServer(m.cold || 0);   // his cold, after a reload
+      if (m.type === "reborn") { try { for (const k of ["mochi.floor.v1", "mochi.said", "mochi.tip.pull", "mochi.guard"]) localStorage.removeItem(k); } catch (_) { /* fine */ } location.reload(); }   // Day Zero: a fresh start here too
+      if (m.type === "care") { send("forgive"); }
+      if (m.type === "workbench") workbench(m);
+      if (m.type === "reveal") { reveal(m); setTimeout(paintGrowth, 800); }
+      if (m.type === "scenery" && m.items) putScenery(m.items);   // one made at the workbench just now for the story (Nov 5)
+      if (m.type === "activity" && m.activity) setTimeout(() => runActivity(m.activity, 300), 1200);   // one he made up (planned after he answered; after his reply shows)
+      if (m.type === "beat") playBeat(m);        // a beat of his own story (Nov 3)
+      if (m.type === "skit") playSkit(m);        // a little scene from what you were just talking about (Nov 4)
+      if (m.type === "skitSoon" && PR() && PR().peekFriend) {   // the friend who's coming peeks in from the edge while the scene's written ("Not eaten yet? Hmm… ♡") and goes to fetch something
+        if (PR().peekFriend(m.who, { line: m.line, ms: 2900 })) window.__peekAt = Date.now();
+      }
+      if (m.type === "story") paintStory(m);
+      if (m.type === "scamcheck" && m.phase === "start") detective(m);   // Detective Mochi while the scam check runs (Nov 7)
+    };
+  }
+  connect();
+  let typingAt = 0;
+  input.addEventListener("input", () => { if (wsOk && Date.now() - typingAt > 2000) { typingAt = Date.now(); wsSend({ type: "typing" }); } });
+
+  // ---- the workbench, live: what he's making and for how long
+  let making = null;
+  function workbench(m) {
+    if (window.ZD) window.ZD.workbench(m);
+    if (m.status === "working") making = { request: m.request.split(":")[0], kind: m.kind, t0: Date.now() };
+    else { making = null; if (m.status === "done") bubble(`[workbench: ${m.request.split(":")[0]} ready in ${Math.round((m.ms || 0) / 1000)} s; he'll show you when you're free]`, "sys"); }
+    paintStatus();
+  }
+  function reveal(m) {
+    if (window.ZD) window.ZD.reveal(m);
+    if (m.kind === "prop" && m.prop) {
+      if (window.__mochiProps) window.__mochiProps.summon(m.prop, { ms: 12000 });
+      M() && M().play(m.unsure ? "shy" : m.gift ? "love" : "proud", 2400);
+      bubble(m.text, "mochi");
+      bubble(m.gift ? `[a surprise he made on his own: ${m.prop.name}]` : `[new prop: ${m.prop.name} — ${m.prop.origin}]`, "sys"); loadShelf();
+    } else if (m.kind === "move" && m.move) {
+      bubble(m.text, "mochi");
+      if (window.__mochiMoves) window.__mochiMoves.play(m.move.recipe, { skill: m.move.skill, id: m.move.id, name: m.move.name });
+      bubble(`[new move: ${m.move.name}]`, "sys"); loadShelf();
+    } else { M() && M().play("oops", 2400); bubble(m.text, "mochi"); }
+  }
+
+  let health = null;
+  async function refreshStatus() {
+    try { health = await (await fetch("/health")).json(); } catch (_) { health = null; }
+    paintStatus();
+  }
+  function paintStatus() {
+    if (!health) { status.textContent = "server unreachable"; if ($("menuStatus")) $("menuStatus").textContent = "server unreachable"; return; }
+    const h = health, q = h.queue.queued + h.queue.working;
+    const work = making ? `<span class="bench">making ${making.request}… ${Math.round((Date.now() - making.t0) / 1000)} s</span>` : h.workbench && h.workbench.bench ? `<span class="bench">bench: ${h.workbench.bench.name}</span>` : "";
+    // the models that make his props: the cloud ones that are ready, with Gemma as the backup
+    const M2 = h.workbench && h.workbench.models, cloud = M2 && !M2.off ? M2.providers.filter((p) => p.state === "ready").map((p) => p.name === "anthropic" ? "claude" : p.name === "openai" ? "gpt" : p.name) : [];
+    const crafts = cloud.length ? ` · crafts with ${cloud.join("+")}` : "";
+    // the details are in the menu; up here only what you'd want to know at a glance: something wrong, or being made
+    $("menuStatus").innerHTML = `${h.ok ? "<b>●</b>" : "○"} ${h.model.split("/").pop()}${crafts} · feelings ${h.feelings ? "on" : "off"} · queue ${q}${wsOk ? "" : " · <b>no socket</b>"}`;
+    status.innerHTML = `${!h.ok ? "○ model not answering" : ""}${wsOk ? "" : `${h.ok ? "" : " · "}<b>no socket</b>`}${work}`;
+  }
+  // how far he's come (Nov 3): the Day-N badge. Zero Day's line: with no cloud models and no cloud voice, nothing
+  // about you leaves this machine, and the badge says so.
+  const growth = $("growth");
+  const esc = (x) => String(x == null ? "" : x).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  async function paintGrowth() {
+    let g = null; try { g = await (await fetch("/api/growth")).json(); } catch (_) { return; }
+    if (!g) return;
+    const n = (k, one, many) => `${k} ${k === 1 ? one : many}`;
+    const bits = [`<span class="day">${g.day ? `Day ${g.day} with you` : "Day zero"}</span>`, `<span>${n(g.made, "thing", "things")} made</span>`, `<span>${n(g.moves, "move", "moves")}${g.taught ? ` (${g.taught} taught by hand)` : ""}</span>`];
+    if (g.handshake) bits.push("<span>secret handshake ✓</span>");
+    if (g.phrases) bits.push(`<span>${n(g.phrases, "phrase", "phrases")}</span>`);
+    if (g.scams && g.scams.played) bits.push(`<span>scams spotted: ${g.scams.spotted}</span>`);
+    if (g.scams && g.scams.checked) bits.push(`<span>messages checked: ${g.scams.checked} (${g.scams.caught} looked like scams)</span>`);
+    if (g.savings && g.savings.goal) { const sv = g.savings, m = (v) => `$${Math.round(v * 100) / 100}`, done = sv.target && sv.saved >= sv.target;   // "$23 / $20" read oddly once the goal was reached
+      bits.push(`<span>piggy bank: ${m(sv.saved)}${sv.target ? ` / ${m(sv.target)}` : ""} for ${esc(sv.goal)}${done ? " ✓" : ""}</span>`); }
+    bits.push(g.cloud.length ? `<span class="out">to the cloud: ${g.cloud.join(", ")}</span>` : `<span class="zero">0 bytes to the cloud</span>`);
+    // up top: the day and where your words go; the rest (what he's made, his moves…) in the menu
+    growth.innerHTML = bits[0] + bits[bits.length - 1]; growth.hidden = false;
+    $("menuGrew").innerHTML = bits.slice(1).map((b) => b.replace(/<\/?span[^>]*>/g, "")).join(" · ");   // (the cloud line too: on a phone it's only here)
+    // Day Zero (first visit, nothing made yet): he says who he is and asks to be taught; the Ideas row shows
+    if (g.day <= 1 && !g.made && !g.moves && !welcomed) {
+      welcomed = true; showTries(true);
+      setTimeout(() => { if (M()) { M().play("hello", 2200); if (M().say) M().say("Hi! I'm Mochi. I don't know much yet…"); } }, 900);
+      setTimeout(() => { bubble("Hi! I'm Mochi. It's my first day, so I don't know anything yet. I learn from you: ask me to make something, draw it for me, or teach me a move with your hands. Everything stays on this computer.", "mochi", "", { quiet: true }); }, 2600);
+    }
+  }
+  let welcomed = false;
+  paintGrowth(); setInterval(paintGrowth, 60000);
+  // a move you taught him, as he does it: his skill at it, and how it grows when you pat him after
+  const skillpop = $("skillpop"); let skillT = null;
+  function showSkill(d, practised) {
+    if (!d || d.skill == null || !d.id) return;   // only moves he keeps (yours), not the built-in ones
+    const k = Math.max(1, Math.round(d.skill * 5)), stars = "★".repeat(k) + "☆".repeat(5 - k);
+    skillpop.innerHTML = `${esc(d.name)} <b>${stars}</b><i>${practised ? (d.skill >= 0.95 ? "got it!" : "getting smoother") : d.skill >= 0.95 ? "nailed it" : d.skill < 0.4 ? "still wobbly · pat him after" : "practising"}</i>`;
+    skillpop.classList.add("on"); clearTimeout(skillT); skillT = setTimeout(() => skillpop.classList.remove("on"), 2800);
+  }
+  document.addEventListener("mochi:performed", (e) => showSkill(e.detail, false));
+  document.addEventListener("mochi:practised", (e) => showSkill(e.detail, true));
+  refreshStatus(); setInterval(refreshStatus, 10000); setInterval(() => { if (making) paintStatus(); }, 1000);
+  async function loadShelf() {   // what he has, as little chips under him
+    try {
+      const r = await (await fetch("/api/room")).json();
+      $("shelf").innerHTML = "";
+      if (r.props.length || clearUndo) $("shelf").appendChild(clearButton(r.props));
+      for (const p of r.props) {
+        const s = document.createElement("span"); s.title = `${p.origin} (tap to see it, pull it out to put it somewhere or give it to someone)`;
+        s.classList.add("chip"); s.addEventListener("pointerdown", (e) => { if (!stage.classList.contains("posing")) { e.preventDefault(); pullStart(e, p, "chip"); } });
+        if (p.thumb) { const i = document.createElement("img"); i.src = p.thumb; i.alt = ""; i.loading = "lazy"; i.draggable = false; s.appendChild(i); }   // (a picture the browser drags on its own cancels the pull: Nov 3)
+        s.appendChild(document.createTextNode(p.name)); $("shelf").appendChild(s);
+      }
+      for (const m of r.moves) { const s = document.createElement("span"); s.title = m.origin; s.textContent = `✦ ${m.name} ${Math.round(m.skill * 100)}%`; $("shelf").appendChild(s); }
+      if (PR() && PR().shelf) PR().shelf(r.props);   // the bookcase to his right
+      if (PR() && PR().floorRestore && !loadShelf.restored) { loadShelf.restored = true; PR().floorRestore(r.props); }   // what you left on the floor last time
+      if (r.props.length && !loadShelf.tipped) {   // once: how to hand him things (it isn't obvious)
+        loadShelf.tipped = true;
+        let seen = false; try { seen = localStorage.getItem("mochi.tip.pull") === "1"; localStorage.setItem("mochi.tip.pull", "1"); } catch (_) { /* fine */ }
+        if (!seen) bubble("[tip: press and drag a prop (from his bookcase, or its name under him) onto Mochi, Mimi or Cocoa to hand it over, or anywhere else to put it down. Tap a prop you put down to turn it.]", "sys");
+      }
+      for (const p of r.props) if (p.useMove && PR() && PR().teachUse) { const mv = r.moves.find((m) => m.id === p.useMove); if (mv) PR().teachUse(p.name, mv); }   // the ways you taught him
+      if ((r.props.length || r.props.some((p) => p.useMove)) && !(PR() && PR().shelf) && (loadShelf.tries = (loadShelf.tries || 0) + 1) < 10) setTimeout(loadShelf, 1500);   // the kit isn't up yet
+    } catch (_) { /* later */ }
+  }
+  loadShelf();
+  // "a clear all old props button" (Nov 2): one tap asks, a second tap clears; Undo for 12 s after. Cleared props are put
+  // away on the server (not destroyed); his pocket things stay.
+  let clearUndo = null, clearAsk = 0;
+  function clearButton(props) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "clear";
+    if (clearUndo) { b.textContent = `Undo clear (${clearUndo.ids.length})`; b.onclick = undoClear; return b; }
+    const asking = Date.now() - clearAsk < 4000;
+    b.textContent = asking ? `Clear all ${props.length}? Tap again` : "Clear old props"; b.classList.toggle("ask", asking);
+    b.title = "Put away every prop he's made (his pocket things stay)";
+    b.onclick = async () => {
+      if (Date.now() - clearAsk > 4000) { clearAsk = Date.now(); loadShelf(); setTimeout(() => { if (Date.now() - clearAsk >= 4000) loadShelf(); }, 4100); return; }
+      clearAsk = 0;
+      try {
+        const res = await (await fetch("/api/props/clear", { method: "POST" })).json();
+        const cur = PR() && PR().current(); if (cur && props.some((p) => p.name === cur.name)) PR().putAway();
+        if (PR() && PR().floorClear) PR().floorClear();
+        clearUndo = { ids: res.ids || [], timer: setTimeout(() => { clearUndo = null; loadShelf(); }, 12000) };
+        bubble(`[shelf cleared: ${res.cleared} prop${res.cleared === 1 ? "" : "s"} put away]`, "sys"); M() && M().play("surprised", 1400);
+      } catch (_) { bubble("[couldn't reach the server to clear the shelf]", "sys"); }
+      loadShelf();
+    };
+    return b;
+  }
+  async function undoClear() {
+    if (!clearUndo) return;
+    const ids = clearUndo.ids; clearTimeout(clearUndo.timer); clearUndo = null;
+    try { await fetch("/api/props/restore", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids }) }); bubble(`[${ids.length} prop${ids.length === 1 ? "" : "s"} back on the shelf]`, "sys"); } catch (_) { /* later */ }
+    loadShelf();
+  }
+
+  // ---- the brain's actions on the body (the brain/body contract)
+  // ---- props on screen: show one, use it, fire it (and let them point where)
+  const PR = () => window.__mochiProps;
+  function showProp(p, ms) {   // in his hoof (or on him, or beside him) unless it already is (a fixed one comes out again, new)
+    const cur = PR() && PR().current();
+    if (cur && cur.name === p.name && !p.fixed) PR().keep(ms); else if (PR() && p.recipe) PR().summon(p, { ms });
+  }
+  // ---- his own story (Nov 3): a beat he acts out on his own, and the card that follows it
+  function playBeat(b) {
+    const m = M(); if (!m || (m.sulking && m.sulking())) return;
+    // asleep or in bed: he wakes up first, stretches, then gets on with it (Nov 3: "the story says he showed his car to
+    // Mimi while he was sleeping")
+    if (m.asleep && m.asleep()) { m.wake(); m.play("sleepy", 1600); bubble("[he wakes up]", "sys"); return setTimeout(() => playBeat({ ...b, woke: true }), 2000); }
+    if (b.kind === "caper") return playCaper(b);
+    if (b.kind === "waterfight") { bubble(`[on his own: ${b.log}]`, "sys"); if (b.line && m.say) m.say(b.line); runWaterFight(b); storyNews(true); return; }
+    if (b.kind === "activity" && b.act) { bubble(`[on his own: ${b.log}]`, "sys"); if (b.line && m.say) m.say(b.line); runActivity(b.act, 600); storyNews(true); return; }
+    bubble(`[on his own: ${b.log}]`, "sys");
+    if (b.line && m.say) setTimeout(() => m.say(b.line), 300);
+    if (b.kind === "practise" && b.move && window.__mochiMoves) setTimeout(() => window.__mochiMoves.play(b.move.recipe, { skill: b.move.skill, id: b.move.id, name: b.move.name, solo: true }), 700);
+    else if (b.kind === "try" && b.prop) { showProp(b.prop, 10000); setTimeout(() => m.play(b.mood || "thinking", 2200), 500); setTimeout(() => { if (PR() && PR().current() && PR().current().name === b.prop.name) PR().use(); }, 3200); }
+    else if (b.kind === "show" && b.prop) { showProp(b.prop, 12000); setTimeout(() => m.play("proud", 2000), 400); if (m.friendSay && b.who) setTimeout(() => m.friendSay(b.who, b.friendLine || "Ooh!"), 1500); }
+    else if (b.kind === "teach" && b.move && m.teachFriend) setTimeout(() => m.teachFriend(b.who, b.move, {}), 600);
+    else if (b.kind === "save" && b.prop) { showProp(b.prop, 8000); setTimeout(() => m.play("thinking", 2200), 500); }
+    else m.play("working", 5200);   // a note in his notepad
+    storyNews(true);
+  }
+  // ---- activities he really does (Nov 3): painting at his easel, juggling, party tricks
+  const TRICK_SAY = { magic: "does a magic trick", confetti: "does a confetti surprise", balance: "balances a ball on his head", vanish: "does a disappearing act", hat: "does a hat trick", juggle: "juggles" };
+  function runActivity(a, delay = 350) {
+    const m = M(); if (!a || !PR() || !PR().activity) return;
+    if (m && m.asleep && m.asleep()) m.wake();
+    const his = (x) => String(x || "").replace(/\byour\b/g, "his").replace(/\byou\b/g, "him");
+    const what = a.kind === "routine" ? `${a.learned ? "making it up as he goes: " : ""}${his(a.ing)}` : a.kind === "paint" ? `paints ${a.subject} on his easel` : a.kind === "juggle" ? `juggles ${a.balls} balls` : TRICK_SAY[a.trick] || "does a trick";
+    setTimeout(() => { PR().activity(a); bubble(`[${what}]`, "sys"); }, delay);
+    if (a.kind === "routine" && a.need) bubble(`[workbench: ${a.need} queued, so he can do it properly next time]`, "sys");
+    if (a.kind === "trick" && a.make) bubble(`[workbench: ${a.make} queued, for the trick]`, "sys");
+    cueBeatUntil = Math.max(cueBeatUntil, Date.now() + 2000);
+  }
+  window.__runActivity = runActivity;   // tests
+  document.addEventListener("mochi:painted", async (e) => {   // his finished painting: keep it (his art wall, his scrapbook)
+    const d = e.detail || {}; if (!d.png) return;
+    const box = document.createElement("div"); box.className = "msg mochi painting";
+    const img = document.createElement("img"); img.src = d.png; img.alt = d.title || `my painting of ${d.subject}`; img.className = "dd-pic";
+    const cap = document.createElement("div"); cap.textContent = d.title ? `“${d.title}”` : "my painting"; box.append(img, cap); chat.appendChild(box); chat.scrollTop = chat.scrollHeight;
+    try { await fetch("/api/paintings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ subject: d.subject, title: d.title, png: d.png }) }); bubble("[on his art wall in the workshop]", "sys"); } catch (_) { /* offline */ }
+  });
+  document.addEventListener("mochi:activity", (e) => {
+    const d = e.detail || {};
+    if (d.kind === "routine" && d.line && d.who) bubble(`${FN(d.who)}: "${d.line}"`, "mochi");   // a friend's line in his activity
+    if (d.kind === "routine" && d.done && !d.interrupted && d.id) fetch("/api/activity/done", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "routine", id: d.id }) }).catch(() => {});
+    if (d.done && d.kind === "juggle") fetch("/api/activity/done", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "juggle", drops: d.drops || 0 }) }).then((r) => r.json()).then((j) => { if (j && j.skill) bubble(`[juggling: ${d.drops ? `dropped ${d.drops}, ` : "no drops! "}${Math.round(j.skill.skill * 100)}% there]`, "sys"); }).catch(() => {});
+  });
+  // a caper: a few scenes of a little story with his friends, one every few seconds (Nov 3)
+  const FN = (w) => (w === "mimi" ? "Mimi" : "Cocoa");
+  function playCaper(b) {
+    const m = M(), aimable = b.prop && (b.prop.archetype === "launcher" || b.prop.archetype === "throwable");
+    if (b.part && b.part[0] === 1) bubble(`[a little story: ${b.title}]`, "sys");
+    let t = 300;
+    for (const sc of b.scenes) {
+      const line = sc.line || "";
+      setTimeout(() => {
+        const who = sc.who, w2 = sc.who2 || (who !== "mochi" ? who : "mimi");
+        switch (sc.do) {
+          case "call": if (m.friend) m.friend(w2, w2 === "cocoa" ? "hello" : "hello", 60000); if (line) { m.say(line); bubble(line, "mochi"); } break;
+          case "say": if (line) { m.say(line); bubble(line, "mochi"); } break;
+          case "use_on":
+            if (b.prop && b.prop.archetype === "ride") {   // a ride for them: in the back seat (a car), then off they go
+              showProp(b.prop, 40000); if (line) { m.say(line); bubble(line, "mochi"); } if (m.friend) m.friend(w2, "hello", 45000);
+              setTimeout(() => { if (PR() && PR().passenger && PR().passenger(w2)) bubble(`[${FN(w2)} hops in the back]`, "sys"); }, 1900);
+              setTimeout(() => { if (PR() && PR().current() && PR().current().name === b.prop.name) PR().use(); }, 3000);
+              break;
+            }
+            if (b.prop) showProp(b.prop, 20000);
+            if (line) { m.say(line); bubble(line, "mochi"); }
+            if (m.friend) m.friend(w2, "hello", 60000);
+            setTimeout(() => { if (aimable && PR() && PR().aimAtFriend) { if (!PR().aimAtFriend(w2)) PR().fire(); } else m.play("proud", 2000); }, 1400);
+            bubble(`[${aimable ? "fires" : "uses"} ${b.prop ? b.prop.name : "it"} at ${FN(w2)}]`, "sys");
+            break;
+          case "use":
+            if (b.prop) { showProp(b.prop, 15000); setTimeout(() => { if (!PR() || !PR().current()) return; if (aimable) PR().fire(); else PR().use(); }, 1100); }
+            if (line) { m.say(line); bubble(line, "mochi"); }
+            break;
+          case "show": if (b.prop) showProp(b.prop, 15000); if (m.friend) m.friend(w2, "hello", 60000); setTimeout(() => m.play("proud", 2000), 500); if (line) { m.say(line); bubble(line, "mochi"); } break;
+          case "move": if (b.move && window.__mochiMoves) window.__mochiMoves.play(b.move.recipe, { skill: b.move.skill, id: b.move.id, name: b.move.name, prop: b.prop && b.prop.recipe }); else m.play("excited", 2200); if (line) bubble(line, "mochi"); break;
+          case "activity":   // he really paints (their portrait), juggles or does a trick, in the middle of the story
+            if (sc.act) { if (sc.who2 && m.friend) m.friend(sc.who2, "hello", 40000); runActivity(sc.act, 0); }
+            break;
+          case "friend_say": if (m.friendSay && line) { m.friendSay(who, line); bubble(line, "friend", who); } break;
+          case "react": {
+            const say = () => { if (m.friendSay && line) { m.friendSay(who, line); bubble(line, "friend", who); } };
+            if (sc.how === "annoyed") { say(); bubble(`[${FN(who)} storms off]`, "sys"); setTimeout(() => m.dismissFriend && m.dismissFriend(who), 2600); setTimeout(() => m.play("oops", 2200), 1200); }
+            else if (sc.how === "leave") { say(); setTimeout(() => m.dismissFriend && m.dismissFriend(who), 1800); }
+            else if (sc.how === "block") { if (m.friend) m.friend(who, who === "cocoa" ? "ready" : "giggle", 20000); say(); bubble(`[${FN(who)} blocks it]`, "sys"); setTimeout(() => m.play("surprised", 1800), 400); }
+            else if (sc.how === "throw_back") {
+              say();
+              const wet = b.prop && b.prop.recipe && b.prop.recipe.ammo === "water" && PR() && PR().waterFight;   // squirted: he gets his own water gun out
+              if (who === "cocoa" && wet) setTimeout(() => PR().waterFight({ starter: "cocoa", quick: true, start: ["My turn, dude!"], shots: [{ from: "cocoa", at: "mochi", outcome: "hit", says: "Eep! Cold!" }], truce: { mochi: "Hehe, okay, we're even!", cocoa: "Now we're even, bro!" } }, { gun: b.prop.recipe }), 600);
+              else if (who === "cocoa") setTimeout(() => runThrow({ steps: [{ from: "cocoa", at: "mochi" }], ball: b.ball, shield: b.shield }), 600); else setTimeout(() => m.play("laugh", 1800), 400);
+              bubble(`[${FN(who)} ${wet && who === "cocoa" ? "squirts him right back with his own water gun" : "throws one back"}]`, "sys");
+            }
+            else if (sc.how === "copy") { say(); if (b.move && m.friendPlay) setTimeout(() => m.friendPlay(who, b.move.recipe, {}), 500); else if (m.friend) m.friend(who, "dance", 8000); bubble(`[${FN(who)} copies it]`, "sys"); }
+            else if (sc.how === "hug") { say(); setTimeout(() => m.hug && m.hug(who), 500); bubble(`[${FN(who)} gives him a hug]`, "sys"); }
+            else if (sc.how === "dance") { say(); if (m.friend) m.friend(who, "dance", 9000); }
+            else { say(); if (m.friend) m.friend(who, "giggle", 12000); setTimeout(() => m.play("laugh", 1800), 300); }
+            break;
+          }
+        }
+        if (chat.scrollHeight - chat.scrollTop - chat.clientHeight < 300) chat.scrollTop = chat.scrollHeight;
+      }, t);
+      t += sc.do === "activity" ? (sc.act && sc.act.kind === "paint" ? 16000 : sc.act && sc.act.kind === "juggle" ? 8500 : sc.act && sc.act.kind === "routine" ? Math.min(20000, (sc.act.ms || 8000) + 600) : 5500) : sc.do === "use_on" || sc.do === "move" || sc.do === "call" ? 5200 : 4000;
+    }
+    if (b.last) setTimeout(() => bubble(`[the end]`, "sys"), t);
+    storyNews(true);
+  }
+  // ---- a little scene (Nov 4, Binoy: "mimi shows up with some food… mochi is surprised… thanks mimi and maybe even
+  // tells the user how sweet mimi is"): Gemma writes it from the moment, and here it's acted out beat by beat, each one
+  // waiting for the last (a friend's here before they speak, the gift is in his hoof before he eats it). A message from
+  // you cuts it short: they stay, but the scene stops talking over you.
+  let skitRun = 0, skitOn = false;
+  async function playSkit(b) {
+    const m = M(); if (!m || !PR() || (m.sulking && m.sulking()) || !Array.isArray(b.beats)) return;
+    if (m.asleep && m.asleep()) { m.wake(); m.play("sleepy", 1400); }
+    let cut = false;
+    const run = ++skitRun, live = () => { if (busy) cut = true; return run === skitRun && !cut; };
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const until = async (fn, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms && !fn()) await wait(120); return fn(); };
+    const readMs = (line) => 1000 + 50 * String(line || "").length;
+    const sayM = (line) => { m.say(line); bubble(line, "mochi"); };
+    const sayF = (w, line) => { if (m.friendSay) m.friendSay(w, line); bubble(line, "friend", w); };   // (their own bubble with their name on it, said in their voice: Nov 7)
+    const here = (w) => !!((m.friends && m.friends()) || {})[w];
+    const arrived = (w) => (m.arrived ? m.arrived(w) : here(w));
+    const things = b.things || {};
+    const FEEL_ROLE = { happy: "cheer", excited: "cheer", laugh: "giggle", shy: "giggle", love: "showoff", surprised: "hello", proud: "cheer", sad: "comfort", sleepy: "hello", thinking: "hello" };
+    bubble(`[a little scene: ${b.title}]`, "sys");
+    skitOn = true;
+    try { await playBeats(); } finally { if (run === skitRun) skitOn = false; }
+    async function playBeats() {
+    for (const s of b.beats) {
+      if (!live()) break;
+      const w = s.who;
+      switch (s.do) {
+        case "arrive": {
+          if (!here(w)) m.friend(w, "hello", 60000, { call: false }); else if (m.stayFriend) m.stayFriend(w, 60000);
+          if (s.with && things[s.with]) PR().carry(w, things[s.with]);
+          await until(() => arrived(w), 6000); await wait(350);
+          if (s.with) bubble(`[${FN(w)} comes by with a ${s.with}]`, "sys");
+          break;
+        }
+        case "call": { if (s.line) sayM(s.line); m.friend(s.who2 || "mimi", "hello", 60000); await until(() => arrived(s.who2 || "mimi"), 7000); await wait(400); break; }
+        case "say": case "aside": {
+          if (s.do === "aside" && m.play) m.play(/sweet|best|love|lucky|♡/i.test(s.line) ? "love" : "happy", 1600);
+          if (Array.isArray(s.choices) && s.choices.length) {   // (the scam-call game: buttons to tap; he reads them out too)
+            choiceRow(s.choices); m.say("Tap one, or say its number!");
+            if (window.VOICE) window.VOICE.speak(s.choices.map((c) => `${c.n}: ${c.text}`).join(". "), { who: "mochi", after: true });
+          }
+          else sayM(s.line);
+          await wait(readMs(s.line)); break;
+        }
+        case "friend_say": { if (!here(w)) { m.friend(w, "hello", 60000, { call: false }); await until(() => arrived(w), 6000); } sayF(w, s.line); await wait(readMs(s.line)); break; }
+        case "give": {
+          if (!PR().carrying(w) && s.with && things[s.with]) PR().carry(w, things[s.with]);
+          if (PR().handOver(w)) { await wait(800); m.play("surprised", 900); bubble(`[${FN(w)} gives him the ${s.with}]`, "sys"); await wait(1100); }
+          break;
+        }
+        case "eat": { if (PR().eat({ drink: /tea|cocoa|drink/.test(s.with || "") })) { await wait(600); bubble(`[${/tea|cocoa/.test(s.with || "") ? "sips" : "eats"} the ${s.with}]`, "sys"); await wait(2900); m.play("happy", 1500); await wait(400); } break; }
+        case "use": { if (PR().current()) PR().use(); await wait(2400); break; }
+        case "feel": { if (w === "mochi") m.play(s.how || "happy", 1300); else m.friend(w, FEEL_ROLE[s.how] || "hello", 60000); if (s.line) { if (w === "mochi") sayM(s.line); else sayF(w, s.line); } await wait(1300 + (s.line ? readMs(s.line) : 0)); break; }
+        case "hug": { if (s.line) sayF(w, s.line); if (m.hug) m.hug(w); await wait(3900); break; }
+        case "dance": { if (w === "mochi") { m.play("excited", 2400); for (const f of ["mimi", "cocoa"]) if (here(f)) m.friend(f, "dance", 60000); } else m.friend(w, "dance", 60000); if (s.line) (w === "mochi" ? sayM : (l) => sayF(w, l))(s.line); await wait(3200); break; }
+        case "piggyback": { if (PR().piggyback) { const r = PR().piggyback(w, { quiet: !!s.line }); if (s.line) sayF(w, s.line); await wait(r && r.ms ? Math.min(12000, r.ms) : 7000); } break; }
+        case "leave": { if (s.line) sayF(w, s.line); if (m.dismissFriend) m.dismissFriend(w); await wait(1800); break; }
+        case "dress": {   // dressing up for a job in the scene (Nov 7): its hat or outfit and its tool
+          const o = things[`job:${s.with}`]; if (!o) break;
+          if (w !== "mochi" && !here(w)) { m.friend(w, "hello", 60000, { call: false }); await until(() => arrived(w), 6000); }
+          const ms = dressOne({ who: w, job: o.job, title: o.title, wear: o.wear, hold: o.hold }, 0); await wait(Math.max(1600, ms)); break;
+        }
+      }
+      if (chat.scrollHeight - chat.scrollTop - chat.clientHeight < 300) chat.scrollTop = chat.scrollHeight;
+    }
+    }
+    // what's still in his hooves stays a moment, then goes back; friends stay a little while, as after any visit
+    if (run === skitRun) for (const f of ["mimi", "cocoa"]) if (here(f) && m.stayFriend) m.stayFriend(f, 25000);
+    storyNews(true);
+  }
+  window.__mochiSkit = playSkit;   // tests
+  const storycard = $("storycard"), storyBtn = $("storyBtn");
+  let storyState = null;
+  const menu = $("menu"), menuBtn = $("menuBtn");
+  const storyNews = (on) => { if (storycard.hidden) { storyBtn.classList.toggle("news", !!on); menuBtn.classList.toggle("news", !!on && menu.hidden); } };
+  const ago = (iso) => { const s = (Date.now() - Date.parse(iso)) / 1000; return s < 90 ? "just now" : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} d ago`; };
+  function paintStory(st) {
+    storyState = st;
+    $("scChapter").textContent = st.chapter && st.chapter.text ? st.chapter.text : "";
+    $("scWhen").textContent = st.chapter && st.chapter.at ? ago(st.chapter.at) : "";
+    const dots = (p) => `<span class="dots" aria-label="${Math.round(p * 100)}%">${[0.2, 0.4, 0.6, 0.8, 1].map((k) => `<s class="${p >= k - 0.01 ? "on" : ""}"></s>`).join("")}</span>`;
+    $("scWants").innerHTML = (st.wants || []).length ? st.wants.map((w) => `<li class="want"><b>${esc(w.title ? `${w.title}` : w.text)}${w.scene ? ` <small>scene ${Math.min(w.scene[0], w.scene[1])} of ${w.scene[1]}</small>` : w.kind === "practise" || w.kind === "save" ? dots(w.progress || 0) : w.beats ? `<span class="dots">${"<s class=on></s>".repeat(Math.min(5, w.beats))}</span>` : ""}</b>${w.from === "you" ? `<span class="you">your idea</span>` : "<span></span>"}<i>${esc(w.why || "")}</i></li>`).join("") : `<li class="want"><i>no plans yet; they come from what you teach him and make together</i></li>`;
+    const rec = [...(st.done || []).map((d) => ({ at: d.at, text: `did it: ${d.text}`, kind: "done" })), ...(st.recent || [])].sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).slice(0, 5);
+    $("scRecent").innerHTML = rec.length ? rec.map((l) => `<li class="${l.kind === "done" ? "done" : ""}">${esc(l.text)} · ${ago(l.at)}</li>`).join("") : "<li>nothing yet</li>";
+    if (!storycard.hidden) storyBtn.classList.remove("news");
+  }
+  async function loadStory() { try { paintStory(await (await fetch("/api/story")).json()); } catch (_) { /* offline */ } }
+  // the menu (Nov 4): opens under its button; picking something (or a click elsewhere, or Esc) closes it
+  function menuOpen(on) {
+    menu.hidden = !on; menuBtn.setAttribute("aria-expanded", String(on));
+    if (on) { menuBtn.classList.remove("news"); paintStatus(); const first = menu.querySelector(".pill:not([hidden])"); if (first && document.activeElement === menuBtn) first.focus(); }
+  }
+  menuBtn.addEventListener("click", (e) => { e.stopPropagation(); menuOpen(menu.hidden); });
+  menu.addEventListener("click", (e) => { if (e.target.closest(".pill") && e.target.closest("#zd, #mute") === null) setTimeout(() => menuOpen(false), 120); });
+  document.addEventListener("pointerdown", (e) => { if (!menu.hidden && !e.target.closest("#menu, #menuBtn")) menuOpen(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !menu.hidden) { menuOpen(false); menuBtn.focus(); } });
+  storyBtn.addEventListener("click", () => { const open = storycard.hidden; storycard.hidden = !open; storyBtn.setAttribute("aria-pressed", String(open)); if (open) { dd.hidden = true; storyBtn.classList.remove("news"); loadStory(); } });
+  $("scClose").addEventListener("click", () => { storycard.hidden = true; storyBtn.setAttribute("aria-pressed", "false"); });
+  $("scPause").addEventListener("click", async () => { try { await fetch("/api/story/pause", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }); } catch (_) { /* fine */ } bubble("[he'll keep his plans to himself for a while]", "sys"); storycard.hidden = true; storyBtn.setAttribute("aria-pressed", "false"); });
+  setTimeout(loadStory, 2500);
+  // what you do together counts towards his plans (a prop used, a friend taught)
+  document.addEventListener("mochi:taught", (e) => { const d = e.detail || {}; if (d.who) fetch("/api/story/event", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "taught", who: d.who }) }).catch(() => {}); });
+  let pendingAim = null;
+  function askAim() {   // "shoot over there": they tap the spot; no tap in 9 s, he fires straight ahead
+    clearTimeout(pendingAim && pendingAim.timer);
+    const name = PR() && PR().current() && PR().current().name;   // only if he still has that one out
+    pendingAim = { timer: setTimeout(() => { pendingAim = null; if (PR() && PR().current() && PR().current().name === name) PR().fire(); paintAimHint(); }, 9000) };
+    paintAimHint();
+  }
+  let hintT = null;
+  function paintAimHint() {   // a short hint when he takes something out (it would cover his feet if it stayed)
+    const h = $("aimhint"), cur = PR() && PR().current();
+    if ((skitOn || Date.now() - detAt < 15000) && !pendingAim) { h.classList.remove("on"); return; }   // (nor while he's playing detective)   // (a scene playing: no "tap it" hints in the middle of it)
+    const text = pendingAim ? (cur && cur.throwable ? "Tap where Mochi should throw it" : "Tap where Mochi should aim") : cur && cur.throwable ? `Tap where to throw it · tap the ${cur.name} to get thrown at` : cur && cur.launcher ? "Tap anywhere to aim · tap the launcher to fire" : cur && cur.ride ? `Tap the ${cur.name} to ride it` : cur ? `Tap the ${cur.name} to use it · hold it to turn it` : "";
+    h.textContent = text; h.classList.toggle("on", !!text); h.classList.toggle("ask", !!pendingAim);
+    stage.classList.toggle("aiming", !!(cur && cur.aims));
+    clearTimeout(hintT);
+    if (text && !pendingAim) hintT = setTimeout(() => h.classList.remove("on"), 4000);
+  }
+  document.addEventListener("mochi:prop", paintAimHint);
+  stage.addEventListener("pointermove", (e) => {   // a hand over something on his shelf, or on the floor
+    if (e.target !== stage || !PR() || !PR().shelfAt || pulling) return;
+    stage.style.cursor = PR().shelfAt(e.clientX, e.clientY) || (PR().floorAt && PR().floorAt(e.clientX, e.clientY)) ? "grab" : "";
+  });
+  // ---- pulling props about (Nov 2): press on one on his bookcase, on the floor, or its chip under him, and pull.
+  // Let go over Mochi, Cocoa or Mimi and it's theirs for now; anywhere else and it stays on the floor there. A tap
+  // without pulling does what it always did (the bookcase: he takes it out; the floor: he picks it up).
+  let pulling = null;
+  function pullStart(e, prop, from, item = null, which = null, who = null) {
+    pulling = { prop, from, item, which, who, x0: e.clientX, y0: e.clientY, id: e.pointerId, on: false, t: Date.now() };
+    if (e.target && e.target.setPointerCapture) try { e.target.setPointerCapture(e.pointerId); } catch (_) { /* fine */ }
+  }
+  // a press inside his box that landed on a floor prop, his bookcase, Cocoa or Mimi (the kit hands those over)
+  document.addEventListener("mochi:stage-press", (ev) => {
+    const d = ev.detail || {}, e = { clientX: d.x, clientY: d.y, pointerId: d.pointerId };
+    if (!PR() || stage.classList.contains("posing")) return;
+    if (d.kind === "friend") pullStart(e, null, "friend", null, null, d.who);
+    else if (d.kind === "floor") pullStart(e, d.item.prop, "floor", d.item); else pullStart(e, d.item, "shelf");
+  });
+  addEventListener("pointermove", (e) => {
+    const P = pulling; if (!P || e.pointerId !== P.id || !PR()) return;
+    if (!P.on && Math.hypot(e.clientX - P.x0, e.clientY - P.y0) > 8) {
+      if (P.from === "friend") P.on = !!(M() && M().friendGrab && M().friendGrab(P.who, P.x0, P.y0));   // Cocoa or Mimi: picked up, to put anywhere
+      else P.on = PR().dragBegin(P.from === "held" ? null : P.prop, e.clientX, e.clientY, { item: P.item, held: P.from === "held" ? P.which || true : false });
+      if (P.on) { document.body.classList.add("pulling"); closePanel(); } else pulling = null;
+    }
+    if (P.on) { if (P.from === "friend") M().friendDrag(P.who, e.clientX, e.clientY); else PR().dragMove(e.clientX, e.clientY); e.preventDefault(); }
+  }, { passive: false });
+  addEventListener("pointerup", (e) => {
+    const P = pulling; if (!P || e.pointerId !== P.id) return;
+    pulling = null; document.body.classList.remove("pulling");
+    if (P.from === "friend") {   // moved: they stay there; a tap: aim at them (something to fire out) or they giggle
+      if (P.on) { M().friendDrop(P.who); return; }
+      const r = PR().pointAt(e.clientX, e.clientY);
+      if (r === "aim" && pendingAim) { clearTimeout(pendingAim.timer); pendingAim = null; paintAimHint(); }
+      if (!r && M() && M().pokeFriend) M().pokeFriend(P.who);
+      return;
+    }
+    if (P.on) { if (PR()) PR().dragEnd(e.clientX, e.clientY); return; }   // the kit says where it went (mochi:dropped)
+    if (P.from === "floor") { PR().floorSelect(P.item); return; }        // a tap on a floor prop: select it (the panel turns it, gives it…)
+    if (P.from === "held") { if (P.which === "worn") return; const r = PR().pointAt(e.clientX, e.clientY); if (r === "aim" && pendingAim) { clearTimeout(pendingAim.timer); pendingAim = null; paintAimHint(); } return; }   // a tap on his prop: use it, as before (on his hat: it just wiggles)
+    // a tap on the bookcase or a chip: he takes it out and tells you where it came from
+    showProp(P.prop, 20000); M() && M().play("proud", 1800); if (PR().story) bubble(PR().story(P.prop), "mochi");
+    if (P.prop.id) fetch(`/api/props/${P.prop.id}/used`, { method: "POST" }).catch(() => {});
+  });
+  addEventListener("pointercancel", (e) => { if (pulling && e.pointerId === pulling.id) { if (pulling.on && pulling.from === "friend") M().friendDrop(pulling.who); else if (pulling.on && PR()) PR().dragCancel(); pulling = null; document.body.classList.remove("pulling"); } });
+  for (const el of [stage, $("shelf")]) el.addEventListener("dragstart", (e) => e.preventDefault());   // the browser's own drag-and-drop would cancel a pull
+  // where a pulled prop ended up (pulled from the page, or from his hoof in the kit)
+  document.addEventListener("mochi:dropped", (e) => {
+    const r = e.detail || {};
+    if (r.to === "floor") bubble(`[put the ${r.name} down; tap it to turn it or give it to someone, or say "here, take it"]`, "sys");
+    else if (r.to) { bubble(`[gave the ${r.name} to ${r.to === "mochi" ? "Mochi" : r.to === "mimi" ? "Mimi" : "Cocoa"}]`, "sys"); if (r.id) fetch(`/api/props/${r.id}/used`, { method: "POST" }).catch(() => {}); }
+  });
+  stage.addEventListener("pointerdown", (e) => {   // a tap on the stage around him (his own box handles touches on him)
+    if (e.target !== stage || !PR() || stage.classList.contains("posing")) return;
+    const fl = PR().floorAt && PR().floorAt(e.clientX, e.clientY);
+    if (fl) { e.preventDefault(); pullStart(e, fl.prop, "floor", fl); return; }
+    const item = PR().shelfAt && PR().shelfAt(e.clientX, e.clientY);
+    if (item) { e.preventDefault(); pullStart(e, item, "shelf"); return; }
+    const which = PR().heldAt && PR().heldAt(e.clientX, e.clientY);
+    if (which) { e.preventDefault(); pullStart(e, PR().heldInfo(), "held", null, which); return; }   // his prop (or hat), where it sticks out of his box: pull it, or tap to use it
+    if (panel.dataset.kind === "floor") PR().floorSelect(null);   // a tap anywhere else lets go of the selection
+    // Mimi or Cocoa: pull them somewhere (they stay there), or tap: aim at them, or they giggle back (on letting go)
+    const who = M() && M().friendAt && M().friendAt(e.clientX, e.clientY);
+    if (who) { e.preventDefault(); pullStart(e, null, "friend", null, null, who); return; }
+    const r = PR().pointAt(e.clientX, e.clientY);
+    if (r === "aim" && pendingAim) { clearTimeout(pendingAim.timer); pendingAim = null; paintAimHint(); }
+  });
+  // Nov 3 ("placed by the user even over the chat window and conversation"): Mochi, his props and his friends can stand
+  // anywhere above the message box. A press over the chat on a prop or a friend is theirs (pull it, tap it); anywhere
+  // else the chat works as always (scrolling, selecting text).
+  function thingAt(x, y) {
+    if (!PR() || stage.classList.contains("posing")) return null;
+    const fl = PR().floorAt && PR().floorAt(x, y); if (fl) return { fl };
+    const who = M() && M().friendAt && M().friendAt(x, y); return who ? { who } : null;
+  }
+  // …and over the rest of the page too, not just the chat column (Nov 4: the Christmas scarf, left over the empty
+  // margin left of the chat, couldn't be picked up again: neither the stage nor the chat was under it, so the press
+  // went nowhere). The stage has its own; the page's buttons, fields and cards stay theirs.
+  const pageThing = (e) => { const el = e.target; return el && el.closest && !el.closest("#stage, button, a, input, textarea, select, label, form, [role=toolbar], [role=dialog], .menu, .shelf, #storycard") ? thingAt(e.clientX, e.clientY) : null; };
+  document.addEventListener("pointerdown", (e) => {
+    const t = pageThing(e); if (!t) return;
+    e.preventDefault(); e.stopPropagation();
+    if (t.fl) pullStart(e, t.fl.prop, "floor", t.fl); else pullStart(e, null, "friend", null, null, t.who);
+  }, true);
+  document.addEventListener("touchstart", (e) => { const T = e.touches[0]; if (T && pageThing({ target: e.target, clientX: T.clientX, clientY: T.clientY })) e.preventDefault(); }, { passive: false, capture: true });   // not a scroll
+  let hoverT = 0;
+  document.addEventListener("pointermove", (e) => {   // a hand over them
+    if (pulling || e.pointerType !== "mouse" || performance.now() - hoverT < 60) return; hoverT = performance.now();
+    document.documentElement.style.cursor = pageThing(e) ? "grab" : "";
+  });
+  document.addEventListener("contextmenu", (e) => { const t = pageThing(e); if (t && t.fl) { e.preventDefault(); PR().floorSelect(t.fl); } });
+  document.addEventListener("wheel", (e) => { const t = pageThing(e); if (t && t.fl) { e.preventDefault(); PR().floorTurn(e.deltaY > 0 ? 15 : -15, t.fl); placePanel(); } }, { passive: false });
+  stage.addEventListener("contextmenu", (e) => {   // right-click a floor prop or his prop: the panel
+    if (!PR()) return;
+    const fl = PR().floorAt && PR().floorAt(e.clientX, e.clientY);
+    if (fl) { e.preventDefault(); PR().floorSelect(fl); return; }
+    const which = PR().heldAt && PR().heldAt(e.clientX, e.clientY);
+    if (which) { e.preventDefault(); openHeldPanel({ detail: { which } }); }
+  });
+  stage.addEventListener("wheel", (e) => {   // the wheel over a floor prop turns it (or over his prop, while its panel is open)
+    if (!PR()) return;
+    const fl = PR().floorAt && PR().floorAt(e.clientX, e.clientY);
+    if (fl) { e.preventDefault(); PR().floorTurn(e.deltaY > 0 ? 15 : -15, fl); placePanel(); return; }
+    if (panel.dataset.kind === "held" && PR().heldAt && PR().heldAt(e.clientX, e.clientY)) { e.preventDefault(); heldTurn(e.deltaY > 0 ? "turnR" : "turnL"); placePanel(); }
+  }, { passive: false });
+
+  // ---- the little panel for moving and turning a prop by hand (Nov 3): a floor prop you've tapped, or (press and
+  // hold, or right-click) the one he holds or wears. Keys while it's open: ← → ↑ ↓ move a floor prop (turn his),
+  // Q / E turn, T tips, Enter gives it to Mochi, Delete puts it away, Esc closes.
+  const panel = $("propPanel");
+  function closePanel() { if (!panel.hidden) { panel.hidden = true; panel.dataset.kind = ""; } if (PR() && PR().floorSelected && PR().floorSelected()) PR().floorSelect(null); }
+  function placePanel() {
+    if (panel.hidden || !PR()) return;
+    const at = panel.dataset.kind === "floor" ? PR().floorScreen() : PR().heldScreen(panel.dataset.which || null);
+    if (!at) { closePanel(); return; }
+    const w = panel.offsetWidth || 260, h = panel.offsetHeight || 44;
+    panel.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, at.x - w / 2))}px`;
+    panel.style.top = `${Math.max(8, Math.min(innerHeight - h - 8, at.y - h - 14))}px`;
+  }
+  function openPanel(kind, name, info = {}) {
+    panel.dataset.kind = kind; $("ppName").textContent = name;
+    panel.classList.toggle("launcher", !!info.launcher); panel.classList.toggle("worn", !!info.worn);
+    panel.hidden = false; placePanel();
+  }
+  function openHeldPanel(ev) {
+    const which = (ev && ev.detail && ev.detail.which) || null, H = PR() && PR().heldInfo(which); if (!H) return;
+    panel.dataset.which = which || (H.worn ? "worn" : "hand");
+    if (H.ride || H.heavy) { bubble(`[the ${H.name} can be pulled away and put down, but not turned]`, "sys"); return; }
+    if (PR().floorSelected && PR().floorSelected()) PR().floorSelect(null);
+    openPanel("held", H.name, H);
+    if (PR().keep) PR().keep(30000);
+  }
+  document.addEventListener("mochi:prop-menu", openHeldPanel);
+  document.addEventListener("mochi:floor-select", (e) => { if (e.detail) openPanel("floor", e.detail.name); else if (panel.dataset.kind === "floor") { panel.hidden = true; panel.dataset.kind = ""; } });
+  document.addEventListener("mochi:prop", () => { if (panel.dataset.kind === "held" && !(PR() && PR().heldInfo(panel.dataset.which || null))) { panel.hidden = true; panel.dataset.kind = ""; } });
+  setInterval(() => { if (!panel.hidden) placePanel(); }, 120);   // it follows the prop (he sways, you move him)
+  // turning what he holds: the recipe turns, and after a moment it's saved, so he holds it that way from now on
+  let heldSave = null;
+  function heldTurn(act) {
+    const which = panel.dataset.which || null, H = PR() && PR().heldInfo(which); if (!H) { closePanel(); return; }
+    const axis = H.launcher ? "x" : act === "tipL" || act === "tipR" ? "z" : "y", step = act.endsWith("L") ? 30 : -30;
+    if (H.worn && axis !== "y") return;
+    const r = PR().heldAdjust(axis, H.launcher ? (act.endsWith("L") ? 45 : -45) : step, which);
+    if (!r) { bubble(`[the ${H.name} can't turn that way]`, "sys"); return; }
+    if (PR().keep) PR().keep(30000);
+    clearTimeout(heldSave);
+    heldSave = setTimeout(async () => {
+      try {
+        const res = await (await fetch("/api/props/adjust", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: H.name, recipe: PR().heldRecipe(which) }) })).json();
+        if (res.ok) { bubble(`[he'll hold the ${H.name} this way from now on]`, "sys"); loadShelf(); }
+      } catch (_) { /* not saved: it stays this way until he puts it away */ }
+    }, 1200);
+  }
+  panel.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b || !PR()) return;
+    const act = b.dataset.act, kind = panel.dataset.kind;
+    if (act === "close") { closePanel(); return; }
+    if (kind === "held") {
+      if (act === "down") { const w = panel.dataset.which || true, H = PR().heldInfo(panel.dataset.which || null); if (H) { const at = PR().heldScreen(panel.dataset.which || null) || { x: innerWidth / 2, y: innerHeight / 2 }; if (PR().dragBegin(null, at.x, at.y, { held: w })) PR().dragEnd(at.x - 140, at.y + 80); } closePanel(); return; }
+      heldTurn(act); placePanel(); return;
+    }
+    const it = PR().floorSelected(); if (!it) { closePanel(); return; }
+    if (act === "turnL") PR().floorTurn(-30); else if (act === "turnR") PR().floorTurn(30);
+    else if (act === "tipL") PR().floorTip(30); else if (act === "tipR") PR().floorTip(-30);
+    else if (act === "reset") PR().floorReset();
+    else if (act === "give") { PR().floorTake(it.item, "mochi"); bubble(`[gave the ${it.name} to Mochi]`, "sys"); closePanel(); return; }
+    else if (act === "away") { PR().floorRemove(); bubble(`[put the ${it.name} back on his shelf]`, "sys"); closePanel(); return; }
+    placePanel();
+  });
+  addEventListener("keydown", (e) => {
+    if (panel.hidden || !PR() || /^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || "")) return;
+    const kind = panel.dataset.kind, k = e.key, floor = kind === "floor";
+    const act = k === "q" || k === "Q" || (!floor && k === "ArrowLeft") ? "turnL" : k === "e" || k === "E" || (!floor && k === "ArrowRight") ? "turnR" : k === "t" || k === "T" ? "tipL" : null;
+    if (act) { e.preventDefault(); if (floor) { if (act === "tipL") PR().floorTip(30); else PR().floorTurn(act === "turnL" ? -30 : 30); } else heldTurn(act); placePanel(); return; }
+    if (floor && /^Arrow/.test(k)) { e.preventDefault(); const d = 0.12; PR().floorNudge(k === "ArrowLeft" ? -d : k === "ArrowRight" ? d : 0, k === "ArrowUp" ? -d : k === "ArrowDown" ? d : 0); placePanel(); return; }
+    if (k === "Escape") { closePanel(); return; }
+    if (floor && k === "Enter") { e.preventDefault(); panel.querySelector('[data-act="give"]').click(); return; }
+    if (floor && (k === "Delete" || k === "Backspace")) { e.preventDefault(); panel.querySelector('[data-act="away"]').click(); }
+  });
+  // ---- props from the conversation: the server picks one with his first reaction (a globe for "which countries
+  // border India?"); he takes it out while he reads, and his answer waits until he has looked at it
+  let cueBeatUntil = 0;
+  function runCue(c) {
+    if (!c) return;
+    (c.friends || []).forEach((f, i) => setTimeout(() => M() && M().friend && M().friend(f.who, f.role), 300 + i * 450));   // Mimi and Cocoa join in
+    if (!PR() || !c.prop || !c.prop.recipe) return;
+    const p = c.prop;
+    if (c.how === "study") { PR().study(p, { ms: 2000, keep: 16000 }); cueBeatUntil = Date.now() + 1600; }
+    else if (c.how === "use") { showProp(p, 15000); setTimeout(() => PR().use(), 650); }
+    else if (c.how === "cheer") { showProp(p, 15000); setTimeout(() => PR().cheer(), 650); }
+    else if (c.how === "squirt") { showProp(p, 12000); setTimeout(() => PR().atViewer(), 550); cueBeatUntil = Date.now() + 1300; }
+    else showProp(p, 20000);   // hold, wear, beside
+  }
+  window.__mochiCue = runCue;   // tests
+  // saving up (Nov 3): his piggy bank comes out beside him; coins drop in as you tell him; confetti at the goal
+  // the story's scenery: what his words put in front of him pops up around him (Nov 5)
+  function putScenery(items) { const pr = PR(); if (pr && pr.scenery && Array.isArray(items) && items.length && pr.scenery(items)) bubble(`[${items.map((x) => x.name).join(", ")}]`, "sys"); }
+  // he shares something with Mimi or Cocoa (Nov 4): he holds it out, they take it; food they eat, then say thanks
+  const SHARE_THANKS = {
+    mimi: { food: ["Mmm! Thank you, Mochi!", "So yummy! You're the sweetest!", "Nom nom! Thank you!"], thing: ["For me? Aww, thank you!", "Ooh, I love it! Thank you!"] },
+    cocoa: { food: ["Dude, that's SO good!", "Whoa, tasty! Thanks, buddy!", "Mmm! Best snack ever, dude!"], thing: ["No way, for me? Thanks, dude!", "Sweet! Thanks, buddy!"] },
+  };
+  function runShare(s) {
+    const pr = PR(); if (!pr || !pr.share || !s || !s.prop) return;
+    const who = s.who || [], names = who.map((w) => (w === "mimi" ? "Mimi" : "Cocoa")).join(" and ");
+    const thanks = (w) => { const L = SHARE_THANKS[w] && SHARE_THANKS[w][s.food ? "food" : "thing"]; if (!L) return; const line = L[Math.floor(Math.random() * L.length)]; const m = M(); setTimeout(() => { if (m && m.friendSay) m.friendSay(w, line); bubble(`${w === "mimi" ? "Mimi" : "Cocoa"}: "${line}"`, "mochi"); }, s.food ? 300 : 700); };
+    const r = pr.share(who, s.prop.recipe, { give: s.give, done: thanks });
+    if (r && r.ok) { bubble(`[${s.food ? "shares" : s.give ? "gives" : "shares"} his ${s.prop.name} with ${names}]`, "sys"); cueBeatUntil = Math.max(cueBeatUntil, Date.now() + Math.min(9000, r.ms || 4000)); }
+  }
+  // dressing up for a job (Nov 7): each one named gets the job's hat or outfit and its tool, one after another; a
+  // friend comes over first; what they had on for another job comes off
+  const SLOT_OF = { head_wearable: "head", body_wearable: "body" };
+  function dressOne(d, after = 0) {
+    const pr = PR(), m = M(); if (!pr || !d) return 0;
+    const slots = new Set((d.wear || []).map((w) => SLOT_OF[w.archetype]).filter(Boolean));
+    if (d.who === "mochi") {
+      setTimeout(() => {
+        for (const k of ["head", "body"]) if (!slots.has(k) && pr.takeOff) pr.takeOff(k);
+        (d.wear || []).forEach((w, i) => setTimeout(() => PR().summon(w, { ms: 60000, quiet: i > 0 }), 120 + i * 300));
+        if (d.hold) setTimeout(() => PR().summon(d.hold, { ms: 60000, quiet: true }), 500 + (d.wear || []).length * 300); else if (pr.current() && pr.putAway && !slots.size) pr.putAway();
+        bubble(`[dresses up as a ${d.title}]`, "sys");
+      }, after);
+      return after + 1400;
+    }
+    const here = !!((m.friends && m.friends()) || {})[d.who];
+    setTimeout(() => { if (m.friend) m.friend(d.who, "hello", 60000); }, after);
+    const at = after + (here ? 300 : 1700);
+    setTimeout(() => {
+      const p = PR(); if (!p || !p.friendWear) return;
+      for (const k of ["head", "body"]) if (!slots.has(k)) p.friendUnwear(d.who, k);
+      (d.wear || []).forEach((w) => p.friendWear(d.who, w.recipe));
+      if (d.hold) p.friendHold(d.who, d.hold.recipe, 60000); else if (p.dropFriendProp) p.dropFriendProp(d.who);
+      if (m.friend) m.friend(d.who, "cheer", 60000);
+      bubble(`[${FN(d.who)} dresses up as a ${d.title}]`, "sys");
+    }, at);
+    return at + 1200;
+  }
+  function runDress(list) {
+    let t = 200;
+    for (const d of list || []) t = dressOne(d, t);
+    cueBeatUntil = Math.max(cueBeatUntil, Date.now() + t);
+  }
+  window.__mochiDress = runDress;   // tests
+  function runSavings(sv) {
+    const m = M(), fmt = (n) => "$" + (Math.round(n * 100) / 100).toLocaleString("en-US", { maximumFractionDigits: 2 });
+    if (sv.prop && PR()) showProp({ name: sv.prop.name, recipe: sv.prop }, sv.event === "done" ? 30000 : 20000);
+    const coins = sv.event === "add" ? Math.min(6, Math.max(1, Math.round(sv.added || 1))) : sv.event === "done" ? 8 : 0;
+    for (let i = 0; i < coins; i++) setTimeout(() => m && m.fx && m.fx("coin"), 500 + i * 160);
+    if (sv.event === "done") { setTimeout(() => m && m.play("superexcited", 3000), 900); setTimeout(() => m && m.party && m.party({ friends: ["mimi", "cocoa"], ms: 10000 }), 1600); }
+    else if (sv.event === "add" || sv.event === "goal") setTimeout(() => m && m.play("happy", 1600), 400);
+    if (sv.goal) bubble(`[piggy bank: ${fmt(sv.saved)}${sv.target ? ` of ${fmt(sv.target)}` : ""} for ${sv.goal}${sv.event === "done" ? " — goal reached!" : ""}]`, "sys");
+    setTimeout(paintGrowth, 800);
+  }
+  // ---- soft-toy throws: "throw a water balloon at Cocoa", "Cocoa, throw a snowball at Mochi", "snowball fight!".
+  // The kit plays them (Cocoa runs in, wind up, splat or bonk off a shield); his answer waits for the first one to land
+  function runThrow(t) {
+    if (!t || !PR() || !PR().fight) return;
+    const steps = t.steps || [];
+    if (steps.length === 1 && !steps[0].at && steps[0].from !== "cocoa") {   // nobody to throw at: they tap the spot
+      if (t.ball) useProp({ name: t.ball.name, archetype: "throwable", recipe: t.ball, use: "fire", aim: true }, 0);
+      return;
+    }
+    const r = PR().fight(steps, { ball: t.ball, shield: t.shield });
+    if (r && r.ok) cueBeatUntil = Math.max(cueBeatUntil, Date.now() + r.firstMs + 650);
+  }
+  window.__mochiThrow = runThrow;   // tests
+  // a water fight with Cocoa (Nov 4): he pulls out his own water gun, they take turns, then a truce
+  function runWaterFight(w) {
+    if (!w || !w.fight || !PR() || !PR().waterFight) return;
+    const r = PR().waterFight(w.fight, { gun: w.gun, cocoaGun: w.cocoaGun });
+    if (r && r.ok) { bubble(w.fight.starter === "cocoa" ? "[Cocoa sneaks up with his water gun: water fight!]" : "[a water fight with Cocoa: he pulls out his own water gun]", "sys"); cueBeatUntil = Math.max(cueBeatUntil, Date.now() + r.ms); }
+  }
+  window.__mochiWater = runWaterFight;   // tests
+  document.addEventListener("mochi:waterfight", (e) => { const d = e.detail || {}; if (d.ambush) fetch("/api/waterfight", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ambush: d.ambush }) }).catch(() => {}); });
+  document.addEventListener("mochi:boom", (e) => {   // a big one: the page flashes and jolts
+    const d = e.detail || {}, f = $("flash"); if (!f || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    f.style.setProperty("--x", `${d.x}px`); f.style.setProperty("--y", `${d.y}px`); f.classList.remove("go", "zd"); void f.offsetWidth; f.classList.add("go"); if (d.zeroDay) f.classList.add("zd");
+    document.body.classList.remove("jolt"); void document.body.offsetWidth; document.body.classList.add("jolt"); setTimeout(() => document.body.classList.remove("jolt"), 500);
+    if (navigator.vibrate) { try { navigator.vibrate([30, 20, 50]); } catch (_) { /* not allowed */ } }
+  });
+  document.addEventListener("mochi:splat", (e) => {   // it came out of the screen and hit the glass
+    const d0 = e.detail || {}, zd = mode === "zeroday", d = zd ? { ...d0, kind: "data" } : d0;   // Zero Day: it hits the glass as a burst of pixels
+    if (zd && window.ZD && window.ZD.tear) window.ZD.tear({ ms: 160, k: 0.8 });
+    const g = $("glass"), water = d.kind === "water" || d.kind === "bubbles", n = water ? 9 : zd ? 30 : 22;
+    const cols = mode === "zeroday" ? ["#22e6ff", "#3d7bff", "#9b5cff", "#ff3df2"] : ["#ff6f91", "#ffd25e", "#5ec8ff", "#7be08a", "#b48cff"];
+    for (let i = 0; i < n; i++) {
+      const el = document.createElement("i"), a = Math.random() * Math.PI * 2, rr = Math.pow(Math.random(), 0.6) * (water ? 150 : 220);
+      el.style.left = `${d.x + Math.cos(a) * rr}px`; el.style.top = `${d.y + Math.sin(a) * rr * 0.75}px`;
+      if (water) { const z = 12 + Math.random() * 30; el.style.width = `${z}px`; el.style.height = `${z * (1 + Math.random() * 0.25)}px`; el.style.setProperty("--fall", `${40 + Math.random() * 130}px`); el.style.setProperty("--d", `${2.2 + Math.random() * 1.4}s`); }
+      else if (zd) { el.className = "bit px"; const z = 5 + Math.floor(Math.random() * 3) * 4; el.style.width = `${z}px`; el.style.height = `${z}px`; el.style.setProperty("--c", ["#39ff7a", "#2fd8ff", "#d6ffe4", "#ff2bd6"][i % 4]); el.style.setProperty("--r", "0deg"); }
+      else { el.className = "bit"; el.style.width = `${7 + Math.random() * 7}px`; el.style.height = `${4 + Math.random() * 4}px`; el.style.setProperty("--c", cols[i % cols.length]); el.style.setProperty("--r", `${Math.random() * 360}deg`); el.style.setProperty("--dx", `${(Math.random() - 0.5) * 80}px`); el.style.setProperty("--d", `${1.6 + Math.random() * 1.2}s`); }
+      el.style.animationDelay = `${Math.random() * 0.08}s`;
+      g.appendChild(el); setTimeout(() => el.remove(), 4200);
+    }
+    if (navigator.vibrate) { try { navigator.vibrate(20); } catch (_) { /* not allowed */ } }
+  });
+  function useProp(a, delay) {
+    setTimeout(() => {
+      const m = M(); if (!PR() || !a.recipe) return;
+      const launcher = a.archetype === "launcher" || a.archetype === "throwable", use = a.use || "show";
+      showProp(a, launcher ? 30000 : 15000);
+      if (a.fixed) { bubble(`[makes the ${a.name} ${a.fixed}]`, "sys"); m && m.play("proud", 1800); loadShelf(); }
+      else if (use === "show") { bubble(`[holds up ${a.name}]`, "sys"); m && m.play("proud", 1800); }
+      else if (use === "fire") { bubble(`[${a.aim ? "aims" : "fires"} ${a.name}]`, "sys"); if (a.aim) setTimeout(askAim, 500); else setTimeout(() => { if (PR() && PR().current() && PR().current().name === a.name) PR().fire(); }, 700); }
+      else if (use === "ride" || (a.archetype === "ride" && use !== "show")) { bubble(`[${/\b(car|truck|jeep|kart|van|bus|convertible|buggy)s?\b/i.test(a.name) ? "drives" : "rides"} ${a.name}]`, "sys"); setTimeout(() => PR().use(), 900); }
+      else if (use === "eat" || (PR().edible && PR().edible(a.name) && use === "use")) {   // a bite, a sip, a spoonful (Nov 4)
+        const how = PR().eatStyle ? PR().eatStyle(a.name) : "bite";
+        bubble(`[${how === "sip" ? "sips" : how === "scoop" ? "eats a spoonful of" : "takes a bite of"} the ${a.name}]`, "sys");
+        setTimeout(() => { if (PR()) PR().eat(); }, 900);
+      }
+      else { bubble(`[uses ${a.name}]`, "sys"); setTimeout(() => PR().use(), 700); }
+    }, delay);
+  }
+  function playActions(actions) {
+    const m = M(); if (!m || !actions) return;
+    let delay = 0;
+    for (const a of actions) {
+      if (a.kind === "mood" && a.prop) { useProp({ ...a.prop, use: "show" }, delay); setTimeout(() => m.play(a.name === "showoff" ? "proud" : a.name, 2000), delay + 300); }
+      else if (a.kind === "mood") setTimeout(() => m.play(a.name, 2000), delay);
+      else if (a.kind === "move") setTimeout(() => {
+        if (a.recipe && window.__mochiMoves) window.__mochiMoves.play(a.recipe, { skill: a.skill, prop: a.prop, id: a.id, name: a.name });
+        else m.play("excited", 2200);
+        bubble(`[does ${a.name}${a.prop ? ` with ${a.prop.name}` : ""}]`, "sys");
+      }, delay);
+      else if (a.kind === "costume") { send("costume", { name: a.name }); continue; }   // a hat he already owns: wear it
+      else if (a.kind === "prop") useProp(a, delay);
+      else if (a.kind === "throw") setTimeout(() => runThrow(a), delay);
+      else if (a.kind === "teach") setTimeout(() => M().teachFriend && M().teachFriend(a.who, a.move, { prop: a.prop }), delay);
+      else if (a.kind === "hug") setTimeout(() => M().hug && M().hug(a.who), delay);
+      else if (a.kind === "stance") setTimeout(() => stanceDo(a.name), delay);
+      delay += 2200;
+    }
+  }
+  // practice: a pat right after a move makes it smoother (the kit replays it; the server remembers)
+  document.addEventListener("mochi:practised", (e) => { const d = e.detail || {}; if (d.id) wsSend({ type: "pat", moveId: d.id }); loadShelfSoon(); });
+  let shelfT = null; const loadShelfSoon = () => { clearTimeout(shelfT); shelfT = setTimeout(loadShelf, 600); };
+
+  // ---- the secret handshake: teach it (taps and swipes on him), he plays it back, save; done together it's counted
+  const HS = () => window.__mochiHandshake;
+  const HS_LABEL = { L: "left hoof", R: "right hoof", LS: "left slide", RS: "right slide", H: "head", T: "tummy" };
+  let hsSteps = null, care = false;
+  const paintHs = (gs) => { $("hsSteps").innerHTML = ""; for (const g of gs || []) { const s = document.createElement("span"); s.textContent = HS_LABEL[g] || g; $("hsSteps").appendChild(s); } };
+  function hsTeach() {
+    if (!HS() || !HS().teach()) return;
+    stage.classList.add("hsteach"); stage.classList.remove("hscheck"); paintHs([]);
+    $("hsHelp").textContent = "Tap or swipe his hooves, tap his head or tummy, in your order (up to 8).";
+  }
+  $("teachHs").addEventListener("click", hsTeach);
+  $("hsCancel").addEventListener("click", () => { HS() && HS().cancel(); stage.classList.remove("hsteach", "hscheck"); });
+  $("hsDone").addEventListener("click", () => {
+    const r = HS() && HS().done();
+    if (!r || !r.ok) { $("hsHelp").textContent = "Do at least two, then press Done."; return; }
+    hsSteps = r.steps; $("hsHelp").textContent = "He's showing you. Like that?";
+  });
+  $("hsAgain").addEventListener("click", () => { HS() && HS().again(); stage.classList.remove("hscheck"); paintHs([]); $("hsHelp").textContent = "Show him again."; });
+  $("hsSave").addEventListener("click", async () => {
+    if (!hsSteps) return;
+    stage.classList.remove("hsteach", "hscheck");
+    HS() && HS().save(hsSteps);
+    try { await fetch("/api/handshake", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ steps: hsSteps }) }); bubble(`[learned your secret handshake: ${hsSteps.map((s) => HS_LABEL[s.g]).join(" → ")}. He'll start it when you come back]`, "sys"); }
+    catch (err) { bubble(`(couldn't save the handshake: ${err.message})`, "sys"); }
+  });
+  document.addEventListener("mochi:taught", (e) => { const d = e.detail || {}; if (d.who && d.move) { wsSend({ type: "taught", who: d.who, move: d.move }); bubble(`[${d.who === "mimi" ? "Mimi" : "Cocoa"} learned ${d.move}]`, "sys"); } });
+  document.addEventListener("mochi:handshake", (e) => {
+    const d = e.detail || {};
+    if (d.phase === "teach") paintHs(d.steps);
+    if (d.phase === "check") stage.classList.add("hscheck");
+    if (d.phase === "done") { wsSend({ type: "handshake", done: true }); if (window.ZD) window.ZD.banner("ACCESS GRANTED", { sub: "secret handshake verified" }); }
+  });
+  (async function loadHandshake(n = 0) {   // what he already knows (once the kit is up)
+    if (!HS()) { if (n < 40) setTimeout(() => loadHandshake(n + 1), 250); return; }
+    HS().care(care);   // care mode heard before the kit was up
+    try { const h = await (await fetch("/api/handshake")).json(); if (h && h.steps) HS().set(h.steps); } catch (_) { /* later */ }
+    const away = +new URLSearchParams(location.search).get("away"); if (away) HS().awayMs(away * 1000);   // ?away=60: how long counts as "away"
+  })();
+
+  // ---- Teach a move: pose him by dragging, name it, save it
+  let posed = null, posedFor = null;
+  $("teach").addEventListener("click", () => {
+    if (!window.__mochiMoves) return;
+    const cur = PR() && PR().current();   // holding something: drag it too, and that's how he'll use it
+    const withProp = cur && cur.slot === "hand" && !cur.throwable ? cur.name : null;
+    $("poseHelp").textContent = withProp ? `Drag his arms, head or feet, and drag the ${withProp} to turn and tip it. This becomes how he uses it.` : "Drag his arms, head, body or feet. He remembers the timing. Stand him up first if the move is a standing one.";
+    window.__mochiMoves.pose.start(); stage.classList.add("posing"); paintStand(); $("poseDone").focus();
+  });
+  $("poseCancel").addEventListener("click", () => { window.__mochiMoves.pose.cancel(); stage.classList.remove("posing"); });
+  // stand him up (or sit him down) for the lesson: a move taught standing is done standing
+  const paintStand = () => { const st = !!(M() && M().stance && M().stance().standing); $("poseStand").textContent = st ? "Sit down" : "Stand up"; $("poseStand").setAttribute("aria-pressed", String(st)); };
+  $("poseStand").addEventListener("click", () => { const m = M(); if (!m || !m.stance) return; if (m.stance().standing) m.sit(); else m.stand(); setTimeout(paintStand, 60); });
+  document.addEventListener("mochi:stance", paintStand); document.addEventListener("mochi:stance-touch", paintStand);
+  $("poseDone").addEventListener("click", () => {
+    const r = window.__mochiMoves.pose.done("my move", { skill: 0.2 });
+    stage.classList.remove("posing");
+    if (!r.ok) { bubble("(he didn't move: drag his arms or head, then press Done)", "sys"); return; }
+    posed = r.recipe; posedFor = r.forProp || null; stage.classList.add("naming");
+    $("nameHelp").textContent = posedFor ? `What's this move called? He'll do it whenever he uses his ${posedFor.name}.` : "What's this move called?";
+    $("moveName").value = posedFor ? `${posedFor.name.split(" ").at(-1)} trick` : ""; $("moveName").focus();
+  });
+  $("moveAgain").addEventListener("click", () => posed && window.__mochiMoves.play(posed, { skill: 0.2, name: "my move", prop: posedFor ? posedFor.recipe : null }));
+  $("moveDrop").addEventListener("click", () => { posed = null; posedFor = null; stage.classList.remove("naming"); });
+  $("moveSave").addEventListener("click", async () => {
+    if (!posed) return;
+    const name = ($("moveName").value || "my move").trim().slice(0, 40);
+    try {
+      const r = await (await fetch("/api/moves", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, recipe: { ...posed, name }, origin: posedFor ? `you showed me what to do with my ${posedFor.name}` : "you posed me into it", forProp: posedFor }) })).json();
+      if (r.linked) { PR() && PR().teachUse(r.linked, { id: r.id, name, recipe: { ...posed, name }, skill: 0.15 }); bubble(`[learned: ${name} — that's how he uses his ${r.linked} now; tap it or ask him to use it]`, "sys"); }
+      else bubble(`[learned: ${name} — pat him right after he does it and he'll get smoother]`, "sys");
+      if (M() && M().note) M().note(`learned_move:${name}`);   // the brain hears about it with your next message
+      window.__mochiMoves.play({ ...posed, name }, { skill: 0.15, id: r.id, name, prop: posedFor ? posedFor.recipe : null });
+      loadShelf();
+    } catch (err) { bubble(`(couldn't save the move: ${err.message})`, "sys"); }
+    posed = null; posedFor = null; stage.classList.remove("naming");
+  });
+  $("moveName").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("moveSave").click(); } });
+
+  // ---- his first reaction to a message (crisis rule → feelings model → word rule, decided on the server).
+  // It arrives over the WebSocket ~15 ms after sending, while he is still reading, and again in the HTTP reply as a
+  // fallback; each message id is applied once. The kit only waits 0.6 s past its reading time for it.
+  const KIT_MOODS = new Set(["superexcited", "showoff", "shocked", "sad", "love", "excited", "happy", "concerned", "surprised", "hello", "thinking", "nod", "oops", "shy", "proud", "sleepy", "laugh"]);
+  const kitMood = (x) => (KIT_MOODS.has(x) ? x : x === "forgive" ? "love" : "nod");   // the kit's mochi:mood ignores the rest
+  const sentText = new Map(), applied = new Set();
+  // standing up, sitting down, a walk across the stage and back
+  function stanceDo(how) { const m = M(); if (!m || !m.stand) return; if (how === "walk") m.walk(); else if (how === "stand") m.stand(); else if (how === "sit") m.sit(); }
+  function applyFirst(r) {
+    if (!r || !r.id || applied.has(r.id) || !sentText.has(r.id)) return;   // only messages this page sent
+    applied.add(r.id);
+    const m = M(); if (!m) return;
+    if (r.mood) send("mood", { id: r.id, mood: kitMood(r.mood) });
+    if (r.startSulk) send("sulk", { on: true });
+    if (r.endSulk && !m.isApology(sentText.get(r.id))) send("forgive");
+    if (r.trigger) setTimeout(() => playActions([{ kind: "move", name: r.trigger, recipe: null }]), 900);
+    if (r.cue) setTimeout(() => runCue(r.cue), 250);   // a beat after he starts reading
+    if (r.throw) runThrow(r.throw);
+    if (r.water) runWaterFight(r.water);
+    if (r.propAct && PR() && PR().act) { const a = r.propAct; setTimeout(() => { const o = PR().act(a); if (o && o.ok) { bubble(`[${a.verb === "light" ? "lights" : a.verb === "water" ? "waters" : a.verb === "measure" ? "measures" : a.verb === "look" ? "looks at" : a.verb === "bonk" ? "bonks" : a.verb === "pop" ? "pops" : a.verb === "paint" ? "paints" : "cuts"} the ${a.target.name} with his ${a.tool.name}]`, "sys"); cueBeatUntil = Math.max(cueBeatUntil, Date.now() + o.ms); } }, 300); }   // a prop used on another one (Nov 7)
+    // you mentioned Mimi or Cocoa and nothing's bringing them: now and then they peek in from the edge, having heard
+    // their name (Nov 4: "it would be cute to have cocoa or mimi poke out from the edge of the screen")
+    const said = String(sentText.get(r.id) || "").toLowerCase(), named = ["mimi", "cocoa"].filter((w) => new RegExp(`\\b${w}\\b`).test(said));
+    const bringing = r.water || r.throw || r.talkTo || r.friendWalk || r.party || r.point || r.teach || r.hug || r.piggy || r.share || r.hint || r.activity || r.dismiss;
+    if (named.length && !bringing && PR() && PR().peekFriend && Date.now() - (window.__peekAt || 0) > 45000 && Math.random() < 0.6) {
+      const who = named[Math.floor(Math.random() * named.length)];   // (not if they're here: peekFriend says no)
+      setTimeout(() => { if (PR().peekFriend(who)) window.__peekAt = Date.now(); }, 900);
+    }
+    if (r.friendWalk && PR() && PR().friendStroll) for (const w of r.friendWalk.who) {   // "Mimi, walk around": she comes (if she isn't here) and walks about
+      if (M() && M().friend) M().friend(w, "hello", 30000);
+      setTimeout(() => PR().friendStroll(w), 120);
+    }
+    if (r.ride && r.ride.passenger) {   // "pick up Mimi": he gets in his car, she walks over and hops in the back, off they go (Nov 3)
+      const who = r.ride.passenger, m = M();
+      setTimeout(() => { showProp(r.ride, 45000); bubble(`[gets in the ${r.ride.name}]`, "sys"); }, 300);
+      setTimeout(() => { if (m && m.friend) m.friend(who, "hello", 45000); }, 900);
+      setTimeout(() => { if (PR() && PR().passenger && PR().passenger(who)) bubble(`[${who === "mimi" ? "Mimi" : "Cocoa"} hops in the back]`, "sys"); }, 2900);
+      setTimeout(() => { if (PR() && PR().current() && PR().current().name === r.ride.name) { PR().use(); bubble(`[drives ${r.ride.name}]`, "sys"); } }, 4000);
+      cueBeatUntil = Math.max(cueBeatUntil, Date.now() + 4600);
+    } else if (r.ride) {   // helmet on first (safety first!), then off he goes
+      if (r.ride.helmet && PR()) setTimeout(() => showProp({ name: r.ride.helmet.name, recipe: r.ride.helmet }, 30000), 100);
+      useProp({ ...r.ride, use: "ride" }, 500); cueBeatUntil = Math.max(cueBeatUntil, Date.now() + 1600);
+    }
+    if (r.hug && M() && M().hug) setTimeout(() => M().hug(r.hug), 300);
+    // a guess about a friend ("I think Mimi wants a piggyback ride", Nov 7): he asks them, they come and answer, and
+    // only then does the yes play (the ride, the snack); a no is just their answer
+    const askMs = r.hint ? 3900 : 0;
+    if (r.hint) {
+      const h = r.hint, m = M();
+      setTimeout(() => { bubble(h.ask, "mochi"); if (m && m.say) m.say(h.ask); }, 150);
+      setTimeout(() => { if (m && m.friend) m.friend(h.who, "hello", h.yes ? 30000 : 12000); }, 500);
+      setTimeout(() => { bubble(h.answer, "friend", h.who); if (m && m.friendSay) m.friendSay(h.who, h.answer); }, 2300);
+      cueBeatUntil = Math.max(cueBeatUntil, Date.now() + askMs + (h.yes ? 1500 : 300));
+    }
+    if (r.dress) runDress(r.dress);   // "Mimi, dress up as a doctor" (Nov 7)
+    if (r.share && PR() && PR().share) setTimeout(() => runShare(r.share), 300 + askMs);   // "share your cookie with Mimi" (Nov 4)
+    if (r.piggy && PR() && PR().piggyback) setTimeout(() => { if (PR().piggyback(r.piggy)) bubble(`[${FN(r.piggy)} hops on his back for a piggyback ride]`, "sys"); }, 500 + askMs);   // (Nov 4)
+    if (r.talkTo && M() && M().friend) M().friend(r.talkTo, "hello", 45000);   // "Mimi, how are you?": she hops in to answer (and stays a while)
+    if (r.dismiss && M() && M().dismissFriend) { for (const w of r.dismiss) M().dismissFriend(w); if (r.dismiss.includes(talkingTo)) setWho("mochi"); }   // "let them go": they say bye and leave
+    if (r.party && M() && M().party) setTimeout(() => M().party({ friends: r.party.friends, ms: r.party.ms }), 250);   // "let's dance!": a dance party
+    if (r.stance) setTimeout(() => stanceDo(r.stance), 250);
+    if (r.savings) setTimeout(() => runSavings(r.savings), 250);   // the piggy bank: a goal, a coin in, the goal reached
+    if (r.cold && M() && M().cold) setTimeout(() => (r.cold.on ? M().cold(true, r.cold.until) : M().cold(false)), 300);   // "you caught a cold" / soup, tea, a nap
+    else if (r.sneeze && M() && M().sneeze) setTimeout(() => M().sneeze(), 300);                                       // "can you sneeze?"
+    if (r.point && r.point.at) {   // "shoot Cocoa": he runs in (or she hops in), out comes the launcher, and he aims at them
+      const P = r.point, m = M();
+      if (m && m.friend) m.friend(P.at, P.at === "cocoa" ? "ready" : "hello", 14000);
+      if (PR() && P.prop) setTimeout(() => PR().summon(P.prop, { ms: 30000 }), 250);
+      setTimeout(() => { if (PR() && PR().aimAtFriend && !PR().aimAtFriend(P.at)) PR().fire(); }, 1700);
+    } else if (r.point && window.VOICE) setTimeout(() => window.VOICE.arm(r.point), 200);   // "shoot this": the next tap says where
+    if (r.teach && M() && M().teachFriend) setTimeout(() => M().teachFriend(r.teach.who, r.teach.move, { prop: r.teach.prop }), 300);
+    if (r.handshake === "offer") setTimeout(() => HS() && HS().offer({ force: true, line: "Handshake! Ready?" }), 900);
+    if (r.handshake === "teach") setTimeout(hsTeach, 900);
+    if (r.pose === "teach" && !stage.classList.contains("posing")) setTimeout(() => $("teach").click(), 900);   // "I want to teach you a move": the lesson opens
+  }
+
+  // the chat call, retried when the connection drops (a Wi-Fi hop) or the server is restarting after an update: then
+  // the share link's tunnel answers with its own web page instead of Mochi's answer (Nov 7: "server error: Unexpected
+  // token '<', "<!DOCTYPE "... is not valid JSON"). A restart takes 5 to 15 s, so it waits up to about 20 s. The server
+  // applies a message id once, so a retry never makes him answer twice.
+  async function chatFetch(body) {
+    const waits = [1500, 3000, 5000, 9000];
+    for (let tries = 0; ; tries++) {
+      try {
+        const res = await fetch("/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body, signal: AbortSignal.timeout(90000) });
+        const type = res.headers.get("content-type") || "";
+        if (res.status >= 500 || (res.ok && !/json/i.test(type))) { const e = new Error(`server ${res.status}`); e.restarting = true; throw e; }
+        return await res.json();
+      } catch (e) {
+        if (e && e.name === "TimeoutError") throw e;
+        if (tries >= waits.length) { if (e && e.restarting) e.message = "restarting"; throw e; }
+        if (tries === 0) bubble(e && e.restarting ? "[Mochi's server is restarting for a moment; trying again]" : "[lost the connection for a moment; trying again]", "sys keep");
+        await new Promise((ok) => setTimeout(ok, waits[tries]));
+      }
+    }
+  }
+  // ---- a message
+  let busy = false;
+  // ---- who you're talking to (Nov 3: "let me be able to talk to them just like talking to mochi"): the button by
+  // the message box switches between Mochi, Mimi and Cocoa; while it's a friend, they stay and answer you themselves
+  const WHO = ["mochi", "mimi", "cocoa"], WHO_NAME = { mochi: "Mochi", mimi: "Mimi", cocoa: "Cocoa" };
+  let talkingTo = "mochi";
+  function paintPlaceholder() {
+    const n = WHO_NAME[talkingTo] || "Mochi", ph = mode === "zeroday" ? `> talk to ${n}` : `Talk to ${n}`;
+    input.placeholder = ph; input.dataset.placeholder = ph;
+    const mic = $("mic"); if (mic) { mic.setAttribute("aria-label", `Talk to ${n}`); }
+  }
+  function setWho(w) {
+    talkingTo = WHO.includes(w) ? w : "mochi";
+    const b = $("who"), next = WHO[(WHO.indexOf(talkingTo) + 1) % WHO.length];
+    b.textContent = WHO_NAME[talkingTo]; b.dataset.who = talkingTo; b.setAttribute("aria-label", `Talking to ${WHO_NAME[talkingTo]}. Tap to talk to ${WHO_NAME[next]}`);
+    paintPlaceholder();
+    if (talkingTo !== "mochi" && M() && M().friend) M().friend(talkingTo, "hello", 60000);
+  }
+  $("who").addEventListener("click", () => { setWho(WHO[(WHO.indexOf(talkingTo) + 1) % WHO.length]); focusInput(); });
+  setInterval(() => { if (talkingTo !== "mochi" && M() && M().stayFriend) M().stayFriend(talkingTo, 45000); }, 15000);
+  // his cold as the server remembers it (the socket can say hello before he's on screen: then try again shortly)
+  function coldFromServer(until, tries = 0) {
+    if (!(M() && M().cold)) { if (tries < 40) setTimeout(() => coldFromServer(until, tries + 1), 250); return; }
+    if (until > Date.now()) M().cold("quiet", until); else if (M().sick()) M().cold(false, "quiet");
+  }
+  // his cold went by itself (time ran out, or a nap in his bed): the server forgets it too
+  document.addEventListener("mochi:cold", (e) => { if (e.detail && e.detail.on === false) fetch("/api/cold", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ on: false }) }).catch(() => {}); });
+  document.addEventListener("mochi:friend-bye", (e) => {   // they say goodbye before they go: in the chat too, and out loud
+    const d = e.detail || {}; if (!d.who || !d.text) return;
+    if (d.who === talkingTo) setWho("mochi");
+    bubble(d.text, "friend", d.who, { quiet: true });
+    if (window.VOICE) window.VOICE.speak(d.text, { who: d.who, after: true });
+  });
+  // ---- feedback (Nov 3): when he's shared (a tunnel, MOCHI_PUBLIC=1), people trying him can tell Binoy what they think
+  fetch("/api/whoami").then((r) => r.json()).then((w) => { if (w && w.public) $("fbBtn").hidden = false; }).catch(() => {});
+  const fb = $("fb");
+  $("fbBtn").addEventListener("click", () => { fb.hidden = !fb.hidden; if (!fb.hidden) $("fbText").focus(); });
+  $("fbCancel").addEventListener("click", () => { fb.hidden = true; });
+  fb.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = $("fbText").value.trim(); if (!text) return;
+    $("fbSend").disabled = true;
+    try {
+      const r = await (await fetch("/api/feedback", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, name: $("fbName").value }) })).json();
+      if (r.ok) { $("fbText").value = ""; fb.hidden = true; bubble("[thanks! your feedback went to Binoy]", "sys"); if (M()) { M().play("love", 1800); if (M().say) M().say("Thank you for telling us!"); } }
+      else bubble(`[couldn't send it: ${r.error || "try again"}]`, "sys");
+    } catch (_) { bubble("[couldn't reach Mochi's computer to send it]", "sys"); }
+    $("fbSend").disabled = false;
+  });
+  // ---- the doodle pad (Nov 3): draw something, he looks at it (the vision model names it), then you ask him for it in
+  // words: the usual brain, workbench and reveal make it. Not sure what it is? He asks, and you finish the sentence.
+  const dd = $("doodle"), pad = $("ddPad"), pctx = pad.getContext("2d");
+  let ddLines = 0, ddPic = null, ddLook = null, ddRef = null, crayon = "#1d1a22", ink = {};
+  function ddClear() { pctx.fillStyle = "#fff"; pctx.fillRect(0, 0, pad.width, pad.height); ddLines = 0; ink = {}; $("ddGo").disabled = true; }
+  const crayons = [...document.querySelectorAll("#ddCrayons button")];
+  function pickCrayon(b) { crayon = b.dataset.c; crayons.forEach((x) => x.setAttribute("aria-checked", String(x === b))); }
+  crayons.forEach((b, i) => {
+    b.addEventListener("click", () => pickCrayon(b));
+    b.addEventListener("keydown", (e) => {   // a radio group: arrows move along the crayons
+      const d = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+      if (!d) return; e.preventDefault(); const n = crayons[(i + d + crayons.length) % crayons.length]; pickCrayon(n); n.focus();
+    });
+  });
+  const penWidth = () => (crayon === "#ffffff" ? 28 : 9);
+  function ddOpen(on) {
+    dd.hidden = !on; $("draw").setAttribute("aria-pressed", String(on));
+    clearInterval(ddLook);
+    if (on) { ddClear(); $("ddTitle").textContent = "Draw something for Mochi to make"; if (M()) { M().play("thinking", 3500); ddLook = setInterval(() => M() && M().play("thinking", 3500), 3000); } }
+  }
+  $("draw").addEventListener("click", () => ddOpen(dd.hidden));
+  $("ddCancel").addEventListener("click", () => ddOpen(false));
+  $("ddClear").addEventListener("click", ddClear);
+  let pen = null;
+  const at = (e) => { const r = pad.getBoundingClientRect(); return { x: ((e.clientX - r.left) / r.width) * pad.width, y: ((e.clientY - r.top) / r.height) * pad.height }; };
+  pad.addEventListener("pointerdown", (e) => { e.preventDefault(); pad.setPointerCapture(e.pointerId); pen = { id: e.pointerId, ...at(e) }; pctx.lineCap = pctx.lineJoin = "round"; pctx.lineWidth = penWidth(); pctx.strokeStyle = crayon; pctx.beginPath(); pctx.arc(pen.x, pen.y, penWidth() / 2, 0, Math.PI * 2); pctx.fillStyle = crayon; pctx.fill(); });
+  pad.addEventListener("pointermove", (e) => {
+    if (!pen || e.pointerId !== pen.id) return;
+    const p = at(e); if (crayon !== "#ffffff") ink[crayon] = (ink[crayon] || 0) + Math.hypot(p.x - pen.x, p.y - pen.y);   // how much of each colour
+    pctx.beginPath(); pctx.moveTo(pen.x, pen.y); pctx.quadraticCurveTo(pen.x, pen.y, (pen.x + p.x) / 2, (pen.y + p.y) / 2); pctx.lineTo(p.x, p.y); pctx.stroke();
+    pen = { id: pen.id, ...p };
+  });
+  const penUp = (e) => { if (pen && e.pointerId === pen.id) { pen = null; ddLines++; $("ddGo").disabled = false; } };
+  pad.addEventListener("pointerup", penUp); pad.addEventListener("pointercancel", penUp);
+  $("ddGo").addEventListener("click", async () => {
+    if (!ddLines) return;
+    const go = $("ddGo"); go.disabled = true; $("ddTitle").textContent = "Mochi is looking at your drawing…";
+    const png = pad.toDataURL("image/png");
+    let r = null;
+    const colours = Object.entries(ink).map(([hex, n]) => ({ hex, ink: Math.round(n) })).filter((c) => c.ink > 0);
+    try { r = await (await fetch("/api/doodle", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ png, colours }) })).json(); } catch (_) { r = { error: "offline" }; }
+    ddPic = png; ddRef = r && r.id ? r.id : null; ddOpen(false);   // (it goes in your next "I drew you…" message, sent now or after his answer, and to the workbench)
+    if (r && r.ok && r.name) {   // ask him for it, in words, with the drawing in your message
+      const art = /^[aeiou]/.test(r.name) ? "an" : "a";
+      input.value = `I drew you ${/s$/.test(r.name) && !/ss$/.test(r.name) ? "" : art + " "}${r.name}! Can you make it?`.replace("  ", " ");
+      $("composer").requestSubmit();
+    } else {   // he can't tell (or can't see right now): he asks, and you say what it is
+      if (M()) { M().play("thinking", 2200); if (M().say) M().say("Ooh! What is it?"); }
+      bubble("[he couldn't tell what it is: say what you drew and he'll make it]", "sys");
+      input.value = "I drew you a "; input.focus();
+    }
+  });
+  // the drawing goes in your message bubble too (the next one you send)
+  new MutationObserver((muts) => {
+    if (!ddPic) return;
+    for (const mu of muts) for (const n of mu.addedNodes) {
+      if (!ddPic || !n.classList || !n.classList.contains("me") || !/^\s*i drew you/i.test(n.textContent || "") || n.querySelector("img")) continue;
+      const img = document.createElement("img"); img.className = "dd-pic"; img.alt = "your drawing"; img.src = ddPic; n.appendChild(img); ddPic = null;
+    }
+  }).observe(chat, { childList: true });
+  addEventListener("keydown", (e) => { if (e.key === "Escape" && !dd.hidden) ddOpen(false); });
+  // things to try: shown until you've said a few things yourself (counted in this browser); the Ideas pill toggles it
+  const tries = $("tries"), ideas = $("ideas");
+  const said = () => +(store.get("mochi.said") || 0);
+  function showTries(on) { tries.hidden = !on; ideas.setAttribute("aria-pressed", String(on)); }
+  showTries(said() < 3);
+  ideas.addEventListener("click", () => showTries(tries.hidden));
+  tries.addEventListener("wheel", (e) => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { tries.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });   // a mouse wheel scrolls it sideways
+  tries.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b || busy) return;
+    input.value = b.textContent.trim(); $("composer").requestSubmit();
+  });
+  $("composer").addEventListener("submit", () => { if (!input.value.trim() || busy) return; const n = said() + 1; store.set("mochi.said", String(n)); if (n === 3 && ideas.getAttribute("aria-pressed") === "true") showTries(false); });
+  $("composer").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = input.value.trim(); if (!text || busy) return;
+    input.value = ""; busy = true;
+    const m = M(); const id = String(Date.now());
+    sentText.set(id, text);
+    for (const k of sentText.keys()) { if (sentText.size <= 60) break; sentText.delete(k); applied.delete(k); }   // the last 60 messages are enough
+    bubble(text, "me");
+    const crisis = isCrisis(text);
+    if (crisis && HS()) HS().care(true);   // before he reads it: no handshake offer after this one
+    // "here, take it" right after you put something down (or while you're pulling it): he takes it
+    if (!crisis && PR() && TAKE_IT.test(text)) {
+      if (PR().dragging && PR().dragging()) PR().dragGive("mochi");
+      else if (PR().floorRecent && PR().floorRecent(180000)) PR().floorTake();
+    }
+    if (!crisis && mode !== "zeroday" && ZD_ON.test(text)) setMode("zeroday");
+    else if (!crisis && mode === "zeroday" && ZD_OFF.test(text)) setMode("normal");
+    // same order as Thali: forgive before said (the page knows the apology instantly), then said, costume, busy
+    let wore = null;   // "christmas" | "easter" | "none" | null: told to the brain so his words match his outfit
+    if (m) {
+      if (m.sulking() && m.isApology(text)) send("forgive");
+      send("said", { text, id });
+      wore = crisis ? null : m.costumeFor(text);
+      if (wore !== null) send("costume", { name: wore === "none" ? "" : wore });
+      send("busy", { busy: true });
+    }
+    const events = m ? m.takeEvents() : [];
+    try {
+      const drew = ddRef && /^\s*i drew you/i.test(text) ? ddRef : null; if (drew) ddRef = null;   // your drawing goes with it, for the workbench
+      const body = JSON.stringify({ text, id, ...(drew ? { doodle: drew } : {}), rule: m ? m.classify(text) : null, events, costume: wore, mode, holding: PR() ? PR().current() : null, friends: m && m.friends ? m.friends() : null, to: talkingTo !== "mochi" ? talkingTo : null, guard: PR() && PR().guard ? PR().guard() : null, standing: !!(m && m.stance && m.stance().standing) });
+      const r = await chatFetch(body);
+      applyFirst(r);   // no-op if the WebSocket already delivered it
+      if (cueBeatUntil > Date.now()) await new Promise((ok) => setTimeout(ok, cueBeatUntil - Date.now()));   // he looks at it, then answers
+      if (m) {
+        send("busy", { busy: false });
+        const first = (r.reply.actions || []).find((a) => a.kind === "mood");
+        send("replied", { text: r.reply.text, error: r.reply.error, act: first && first.name });
+        playActions((r.reply.actions || []).filter((a) => a !== first));
+      }
+      if (r.reply.text) { bubble(r.reply.text, "mochi", r.reply.crisis ? "crisis" : "", { quiet: true }); if (window.VOICE && !r.reply.crisis) window.VOICE.speak(r.reply.say || r.reply.text); }   // (say: with his voice tags, heard not shown)
+      if (r.reply.scamCheck) { scamCard(r.reply.scamCheck); detectiveVerdict(r.reply.scamCheck); }
+      if (r.reply.cold && r.reply.cold.on && M() && M().cold) M().cold(true, r.reply.cold.until);   // his story gave him a cold ("Achoo! I think I'm catching a cold…")
+      else if (r.reply.sneeze && M() && M().sneeze) M().sneeze();                                  // "Achoo!" in his words: on screen too
+      (r.reply.friendSay || []).forEach((f, i) => setTimeout(() => {   // Cocoa's or Mimi's own line: their bubble on stage, their own line here
+        const who = f.who === "mimi" ? "Mimi" : "Cocoa"; bubble(f.text, "friend", f.who, { quiet: true });   // the name tag says who
+        if (window.VOICE) window.VOICE.speak(f.say || f.text, { who: f.who, after: true });
+        if (M() && M().friendSay) M().friendSay(f.who, f.text);
+      }, 700 + i * 900));
+      if (r.reply.activity) runActivity(r.reply.activity);   // painting, juggling, a party trick: really on screen (Nov 3)
+      if (r.reply.scenery) setTimeout(() => putScenery(r.reply.scenery), 700);   // "tracks leading toward the bushes": there they are (Nov 5)
+      if (r.reply.error) bubble(`(brain error: ${r.reply.error})`, "sys");
+      for (const q of r.reply.queued || []) bubble(`[workbench: ${q.name} ${q.status === "someday" ? "→ someday list" : q.duplicate ? "already queued" : "queued"}]`, "sys");
+      for (const f of r.reply.remembered || []) bubble(`[remembered: ${f.text}]`, "sys");
+      if (r.feelings) console.log("feelings", r.feelings, r.mood, "strikes", r.strikes);
+    } catch (err) {
+      if (m) { send("busy", { busy: false }); send("replied", { error: true }); }
+      bubble(err && err.message === "restarting" ? "[Mochi's server is still restarting; try again in a few seconds]" : /fetch|network|TimeoutError|timed out/i.test(String(err && (err.name + " " + err.message))) ? "[couldn't reach Mochi's server; is it running? (check that LM Studio has the model loaded, too)]" : `(server error: ${err.message})`, "sys");
+    } finally { busy = false; focusInput(); }
+  });
+  // start in the saved mode, without the switch animation
+  const waitKit = setInterval(() => { if (window.__mochi && window.__mochi.zeroDay) { clearInterval(waitKit); setMode(mode, false); } }, 50);
+  setTimeout(() => clearInterval(waitKit), 8000);
+  focusInput();
+</script>
+</body>
+</html>

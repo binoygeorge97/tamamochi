@@ -1,0 +1,12 @@
+{
+  "name": "mochi-kit",
+  "private": true,
+  "description": "Mochi, the chibi sheep from Thali: a three.js character built entirely from code. Builds dist/mochi.min.js (the body) dist/render.min.js (the crafter's prop renderer) and dist/crew.min.js (Kit and Pip, the workshop crew).",
+  "scripts": {
+    "build": "esbuild src/mochi.js src/render.js src/crew.js --bundle --minify --format=esm --target=es2020 --legal-comments=eof --outdir=dist --entry-names=[name].min"
+  },
+  "devDependencies": {
+    "three": "0.170.0",
+    "esbuild": "0.24.0"
+  }
+}

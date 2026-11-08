@@ -1,0 +1,8 @@
+node_modules/
+kit/dist/
+data/*
+!data/keys.example.json
+keys.json
+*.sqlite*
+*.log
+*.err

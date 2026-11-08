@@ -1,0 +1,93 @@
+/* Zero Day, the hacker edition, on the page: phosphor green on black, Matrix rain behind everything, a terminal for
+   the chat, glitches that tear the screen now and then, a boot-up when it goes on, ACCESS GRANTED. Loaded after the
+   page's own styles; everything here only applies in Zero Day (and the rain, boot and banner layers are hidden
+   otherwise). */
+:root[data-mode="zeroday"] {
+  --card: rgba(2, 14, 8, .84); --label: #c9ffd9; --label-3: #5fae7c; --bg: #010604; --accent: #39ff7a; --me: rgba(47, 216, 255, .08); --line: rgba(57, 255, 122, .35);
+  --shadow: 0 0 0 1px rgba(57, 255, 122, .28), 0 6px 22px rgba(57, 255, 122, .07);
+  --shadow-pop: 0 0 0 1px rgba(57, 255, 122, .55), 0 8px 28px rgba(57, 255, 122, .16);
+  --ui: var(--mono);
+}
+:root[data-mode="zeroday"] body { background: var(--bg); }
+:root[data-mode="zeroday"] body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 1;
+  background: radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(0, 0, 0, .55)); }
+/* the rain sits behind the stage and the chat */
+.zd-rain { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; opacity: 0; transition: opacity .6s; }
+:root[data-mode="zeroday"] .zd-rain { opacity: .5; }
+:root[data-mode="zeroday"] .stage, :root[data-mode="zeroday"] .chat, :root[data-mode="zeroday"] .composer { position: relative; z-index: 2; }
+:root[data-mode="zeroday"] .stage { z-index: 3; }   /* he (and his things) can stand over the chat */
+
+/* the chat as a terminal */
+:root[data-mode="zeroday"] .msg { border-radius: 3px; font: 14.5px/1.45 var(--mono); }
+:root[data-mode="zeroday"] .msg.mochi { background: rgba(2, 18, 10, .88); color: #c9ffd9; box-shadow: inset 2px 0 0 #39ff7a, 0 0 0 1px rgba(57, 255, 122, .22); }
+:root[data-mode="zeroday"] .msg.mochi, :root[data-mode="zeroday"] .msg.friend { margin-top: 0; }
+:root[data-mode="zeroday"] .msg.mochi::before, :root[data-mode="zeroday"] .msg.friend::before { position: static; padding: 0; background: none; font: inherit; letter-spacing: 0; }
+:root[data-mode="zeroday"] .msg.mochi::before { content: "mochi@0day:~$ "; color: #2fbf63; }
+:root[data-mode="zeroday"] .msg.me { background: rgba(47, 216, 255, .07); color: #bff3ff; box-shadow: inset -2px 0 0 #2fd8ff, 0 0 0 1px rgba(47, 216, 255, .25); }
+:root[data-mode="zeroday"] .msg.me::before { content: "> "; color: #2fd8ff; }
+:root[data-mode="zeroday"] .msg.friend { font-style: normal; }
+:root[data-mode="zeroday"] .msg.friend.cocoa::before { content: "cocoa@0day:~$ "; color: #ffcf5c; }
+:root[data-mode="zeroday"] .msg.friend.mimi::before { content: "mimi@0day:~$ "; color: #ff8fd8; }
+:root[data-mode="zeroday"] .msg.sys { color: #3fbf6e; letter-spacing: .01em; }
+.msg .zd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.msg.zd-typing::after, .mochi-say.zd-typing::after { content: "▋"; color: #39ff7a; margin-left: 1px; animation: zd-blink 1s steps(1) infinite; }
+@keyframes zd-blink { 50% { opacity: 0; } }
+:root[data-mode="zeroday"] .composer { position: relative; }
+:root[data-mode="zeroday"] .composer::before { content: "$"; position: absolute; left: 31px; top: 50%; transform: translateY(-50%); margin-top: -1px; color: #39ff7a; font: 600 16px var(--mono); z-index: 3; pointer-events: none; }
+:root[data-mode="zeroday"] .composer:has(.who)::before { left: calc(31px + 74px + 8px); }
+:root[data-mode="zeroday"] .composer .who { border-radius: 4px; background: transparent; color: #39ff7a; box-shadow: inset 0 0 0 1px #39ff7a; font-family: var(--mono); }
+:root[data-mode="zeroday"] .composer input { border-radius: 4px; padding-left: 32px; font-family: var(--mono); caret-color: #39ff7a; caret-shape: block; }
+:root[data-mode="zeroday"] .composer button { border-radius: 4px; background: transparent; color: #39ff7a; box-shadow: inset 0 0 0 1px #39ff7a, 0 0 14px rgba(57, 255, 122, .25); font-family: var(--mono); }
+:root[data-mode="zeroday"] .composer button:hover { background: rgba(57, 255, 122, .12); }
+:root[data-mode="zeroday"] .pill { border-radius: 4px; }
+:root[data-mode="zeroday"] [aria-checked="true"] .switch { background: linear-gradient(90deg, #1fbf5b, #39ff7a); box-shadow: 0 0 10px rgba(57, 255, 122, .6); border-radius: 3px; }
+:root[data-mode="zeroday"] [aria-checked="true"] .switch::after { border-radius: 2px; background: #021008; }
+:root[data-mode="zeroday"] #zd { color: #7dffad; text-shadow: 0 0 8px rgba(57, 255, 122, .7); }
+:root[data-mode="zeroday"] .mochi-say { border-radius: 4px 4px 1px 4px; font-family: var(--mono); font-weight: 500; color: #d6ffe4; }
+:root[data-mode="zeroday"] .shelf span { border-radius: 3px; }
+
+/* glitches: tears and streaks over everything for a moment; the interface jitters with a colour split */
+.zd-fx { position: fixed; inset: 0; pointer-events: none; z-index: 45; overflow: hidden; }
+.zd-fx i { position: absolute; left: 0; right: 0; display: block; }
+.zd-fx .zd-tear { height: var(--h, 12px); backdrop-filter: hue-rotate(var(--hue, 100deg)) saturate(3) brightness(1.4); -webkit-backdrop-filter: hue-rotate(var(--hue, 100deg)) saturate(3) brightness(1.4);
+  background: var(--tint, rgba(57, 255, 122, .08)); transform: translateX(var(--dx, 0)); mix-blend-mode: screen; animation: zd-tear var(--d, 160ms) steps(3) forwards; }
+.zd-fx .zd-streak { height: var(--h, 2px); left: var(--x0, 0); right: auto; width: var(--w, 60vw); background: linear-gradient(90deg, transparent, var(--c, #39ff7a) 30%, #fff 50%, var(--c, #39ff7a) 70%, transparent);
+  box-shadow: 0 0 10px var(--c, #39ff7a); opacity: .9; animation: zd-streak var(--d, 160ms) linear forwards; }
+@keyframes zd-tear { 0% { opacity: 1; } 50% { transform: translateX(calc(var(--dx, 0px) * -.6)); } 100% { opacity: 0; transform: translateX(var(--dx, 0px)); } }
+@keyframes zd-streak { 0% { transform: translateX(-40vw); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateX(80vw); opacity: 0; } }
+:root.zd-glitching .chat, :root.zd-glitching .controls, :root.zd-glitching .status, :root.zd-glitching .composer, :root.zd-glitching .shelf {
+  text-shadow: 2px 0 rgba(255, 43, 214, .75), -2px 0 rgba(47, 216, 255, .75); animation: zd-jitter 90ms steps(2) infinite; }
+@keyframes zd-jitter { 0% { transform: translate(0, 0); } 50% { transform: translate(-3px, 1px); } 100% { transform: translate(2px, -1px); } }
+.mochi-say .zd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.mochi-say .zd-scr { color: #39ff7a; }
+
+/* boot-up: a black screen, a text dump, then the picture comes on like an old CRT */
+.zd-boot { position: fixed; inset: 0; z-index: 60; background: #000; color: #39ff7a; font: 14px/1.6 var(--mono, ui-monospace, Consolas, monospace); padding: 6vh 7vw; display: none; cursor: pointer; }
+.zd-boot.on { display: block; }
+.zd-boot p { margin: 0; white-space: pre; text-shadow: 0 0 6px rgba(57, 255, 122, .6); }
+.zd-boot .bad { color: #ff5fd7; text-shadow: 0 0 6px rgba(255, 43, 214, .6); }
+.zd-boot .big { color: #d6ffe4; font-size: 22px; margin-top: 10px; }
+.zd-boot.flash { animation: zd-crt-on .42s cubic-bezier(.2, .8, .2, 1) forwards; }
+@keyframes zd-crt-on { 0% { background: #000; } 30% { background: #d6ffe4; clip-path: inset(49.6% 0 49.6% 0); } 60% { background: #39ff7a; clip-path: inset(0 0 0 0); opacity: .6; } 100% { opacity: 0; clip-path: inset(0 0 0 0); } }
+:root.zd-poweroff body > * { animation: zd-crt-off .38s cubic-bezier(.5, 0, .9, .4) forwards; }
+@keyframes zd-crt-off { 0% { transform: none; filter: none; } 55% { transform: scaleY(.006); filter: brightness(3); } 100% { transform: scale(0, .006); filter: brightness(5); } }
+
+/* ACCESS GRANTED (and the like): a box in the middle, flickering on */
+.zd-banner { position: fixed; left: 50%; top: 38%; transform: translate(-50%, -50%); z-index: 55; pointer-events: none; display: none; padding: 16px 28px; border: 2px solid #39ff7a; background: rgba(1, 10, 5, .9);
+  color: #39ff7a; font: 700 clamp(22px, 4.5vw, 44px)/1.1 var(--mono, ui-monospace, Consolas, monospace); letter-spacing: .06em; text-align: center; box-shadow: 0 0 0 4px rgba(57, 255, 122, .15), 0 0 40px rgba(57, 255, 122, .35);
+  text-shadow: 0 0 12px rgba(57, 255, 122, .8); }
+.zd-banner small { display: block; font-size: .38em; font-weight: 500; letter-spacing: .02em; margin-top: 8px; color: #b7ffd0; }
+.zd-banner.on { display: block; animation: zd-banner var(--d, 1.8s) linear forwards; }
+.zd-banner.deny { border-color: #ff2bd6; color: #ff5fd7; text-shadow: 0 0 12px rgba(255, 43, 214, .8); box-shadow: 0 0 40px rgba(255, 43, 214, .35); }
+@keyframes zd-banner { 0% { opacity: 0; } 3% { opacity: 1; } 6% { opacity: .15; } 9% { opacity: 1; } 12% { opacity: .35; } 15% { opacity: 1; } 84% { opacity: 1; filter: none; } 100% { opacity: 0; filter: blur(2px); } }
+@keyframes zd-banner-fade { 0% { opacity: 0; } 10%, 84% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .zd-boot.flash, :root.zd-poweroff body > *, :root.zd-glitching .chat, :root.zd-glitching .controls, :root.zd-glitching .status, :root.zd-glitching .composer, :root.zd-glitching .shelf { animation: none; } .zd-banner.on { animation: zd-banner-fade var(--d, 1.8s) ease-out forwards; } }
+
+/* a ripple where you click: rings of light, a few scattering glyphs */
+.zd-ripple { position: fixed; width: 0; height: 0; z-index: 3; pointer-events: none; }
+.zd-ripple i { position: absolute; left: -60px; top: -60px; width: 120px; height: 120px; border-radius: 50%; border: 2px solid #39ff7a; box-shadow: 0 0 12px #39ff7a, inset 0 0 10px rgba(47,216,255,.6); opacity: 0; transform: scale(.1); animation: zd-ring 900ms cubic-bezier(.2,.7,.3,1) forwards; }
+.zd-ripple i:nth-child(2) { border-color: #2fd8ff; }
+.zd-ripple b { position: absolute; left: -6px; top: -9px; font: 700 15px/1 ui-monospace, Consolas, monospace; color: #b8ffd2; text-shadow: 0 0 8px #39ff7a; animation: zd-scatter 1000ms ease-out forwards; }
+@keyframes zd-ring { 0% { opacity: .95; transform: scale(.1); } 100% { opacity: 0; transform: scale(1.9); } }
+@keyframes zd-scatter { 0% { opacity: 1; transform: translate(0, 0); } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)); } }
+@media (prefers-reduced-motion: reduce) { .zd-ripple i { animation-duration: 1ms; } .zd-ripple b { display: none; } }

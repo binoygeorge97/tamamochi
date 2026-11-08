@@ -1,0 +1,17 @@
+{
+  "_how": "Copy this file to keys.json in this same folder, paste each key between its quotes and save. Mochi picks it up within a few seconds, no restart. Leave a key empty to skip that service. Keep keys.json private: never share it or paste keys into a chat.",
+  "anthropic": { "key": "", "model": "claude-sonnet-5-5", "effort": "low", "dailyCalls": 300 },
+  "openai": { "key": "", "model": "gpt-5.5", "effort": "low", "dailyCalls": 300 },
+  "gemini": { "key": "", "model": "gemini-3.6-flash", "effort": "low", "dailyCalls": 300, "tasks": ["critique"], "backup": ["recipe", "fix", "remake", "move", "move-fix"] },
+  "_cloudBoost": "Cloud models (Claude, GPT, Gemini) are only used while the Cloud boost switch on the workshop page is on. Models on this computer (below) don't need it.",
+  "more": [
+    { "name": "nemotron", "baseUrl": "http://127.0.0.1:1234/v1", "model": "nvidia/nemotron-3-nano", "vision": false, "temperature": 0.2, "enabled": false },
+    { "name": "nemotron-api", "baseUrl": "https://integrate.api.nvidia.com/v1", "key": "", "model": "copy the model id from its page on build.nvidia.com", "vision": false, "temperature": 0.2, "tasks": ["recipe", "fix", "remake", "move", "move-fix"], "enabled": false }
+  ],
+  "local": { "weight": 0 },
+  "voice": { "key": "", "voiceId": "jBpfuIE2acCO8z3wKNLl", "model": "eleven_flash_v2_5", "sttModel": "scribe_v2", "stability": 0.45, "similarity": 0.8, "style": 0.35, "speed": 1.05, "dailyChars": 60000, "dailySttSeconds": 3600,
+             "localStt": { "url": "", "model": "whisper-1" }, "friends": { "mimi": "", "cocoa": "" } },
+  "eightyninety": { "key": "", "email": "", "dailyItems": 40 },
+  "cloudFor": ["recipe", "fix", "remake", "move", "move-fix", "critique"],
+  "off": false
+}
